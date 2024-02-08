@@ -75,6 +75,7 @@ impl<C, P, S> Builder<C, P, S, ()> {
             time: self.time,
             control_c: self.control_c,
             controller: None,
+            signals: vec![],
         }
     }
 }
@@ -91,6 +92,7 @@ where
             time: self.time,
             control_c: self.control_c,
             controller: Some(self.controller),
+            signals: vec![],
         }
     }
 }

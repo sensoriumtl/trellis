@@ -12,6 +12,22 @@ use crate::{Calculation, Problem, Reason, State};
 
 pub type Error = Box<dyn std::error::Error>;
 
+pub enum Caller {
+    CtrlC,
+    Controller,
+}
+
+pub struct Killswitch {
+    caller: Caller,
+    inner: Arc<AtomicBool>,
+}
+
+impl Killswitch {
+    fn is_dead(&self) -> bool {
+        self.inner.load(Ordering::SeqCst)
+    }
+}
+
 /// General purpose calculation runner
 pub struct Runner<C, P, S, R> {
     /// Calculation to be run
@@ -28,6 +44,8 @@ pub struct Runner<C, P, S, R> {
     ///
     /// When a signal is received on this channel the calculation is terminated.
     controller: Option<R>,
+    ///
+    signals: Vec<Killswitch>,
 }
 
 impl<C, P, S, R> Runner<C, P, S, R>
@@ -66,6 +84,23 @@ where
         }
 
         Ok(received_kill_signal_from_control_c)
+    }
+
+    fn kill_signal_received(&self) -> bool {
+        self.signals
+            .iter()
+            .any(|signal| signal.inner.load(Ordering::SeqCst))
+    }
+
+    fn kill_cause(&self) -> Option<Reason> {
+        self.signals
+            .iter()
+            .filter(|signal| signal.inner.load(Ordering::SeqCst))
+            .next()
+            .map(|signal| match signal.caller {
+                Caller::CtrlC => Reason::ControlC,
+                Caller::Controller => Reason::Controller,
+            })
     }
 
     fn initialise(&mut self, mut state: S) -> Result<S, Error> {
@@ -115,6 +150,7 @@ where
 
 pub trait Run {
     fn run(self) -> Result<(), Error>;
+    fn initialise_controllers(&mut self) -> Result<(), Error>;
 }
 
 impl<C, P, S> Run for Runner<C, P, S, ()>
@@ -122,11 +158,20 @@ where
     C: Calculation<P, S>,
     S: State,
 {
+    fn initialise_controllers(&mut self) -> Result<(), Error> {
+        let received_kill_signal_from_control_c = Killswitch {
+            caller: Caller::CtrlC,
+            inner: self.initialise_control_c()?,
+        };
+        self.signals = vec![received_kill_signal_from_control_c];
+        Ok(())
+    }
+
     /// Execute the runner
     fn run(mut self) -> Result<(), Error> {
         // Todo: Load checkpoints?
         let start_time = self.now()?;
-        let received_kill_signal_from_control_c = self.initialise_control_c()?;
+        self.initialise_controllers()?;
 
         let mut state = self.state.take().unwrap();
 
@@ -136,14 +181,14 @@ where
             state
         };
 
-        while !received_kill_signal_from_control_c.load(Ordering::SeqCst) {
+        while !self.kill_signal_received() {
             state = self.once(state, start_time.as_ref())?;
         }
 
         state = self.finalise(state)?;
 
-        if received_kill_signal_from_control_c.load(Ordering::SeqCst) {
-            state = state.terminate_due_to(Reason::ControlC);
+        if let Some(reason) = self.kill_cause() {
+            state = state.terminate_due_to(reason);
         }
 
         Ok(())
@@ -156,10 +201,28 @@ where
     S: State,
     R: Control + 'static,
 {
+    fn initialise_controllers(&mut self) -> Result<(), Error> {
+        let received_kill_signal_from_control_c = Killswitch {
+            caller: Caller::CtrlC,
+            inner: self.initialise_control_c()?,
+        };
+
+        let received_kill_signal_from_controller = Killswitch {
+            caller: Caller::Controller,
+            inner: self.initialise_kill_signal_handler()?,
+        };
+        self.signals = vec![
+            received_kill_signal_from_control_c,
+            received_kill_signal_from_controller,
+        ];
+        Ok(())
+    }
+
     /// Execute the runner
     fn run(mut self) -> Result<(), Error> {
         // Todo: Load checkpoints?
         let start_time = self.now()?;
+        self.initialise_controllers()?;
 
         let received_kill_signal_from_control_c = self.initialise_control_c()?;
         let received_kill_signal_from_controller = self.initialise_kill_signal_handler()?;
@@ -182,12 +245,8 @@ where
 
         state = self.finalise(state)?;
 
-        if received_kill_signal_from_control_c.load(Ordering::SeqCst) {
-            state = state.terminate_due_to(Reason::ControlC);
-        }
-
-        if received_kill_signal_from_controller.load(Ordering::SeqCst) {
-            state = state.terminate_due_to(Reason::Controller);
+        if let Some(reason) = self.kill_cause() {
+            state = state.terminate_due_to(reason);
         }
 
         Ok(())
