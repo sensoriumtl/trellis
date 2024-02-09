@@ -8,7 +8,7 @@ use std::sync::{
 use hifitime::{Duration, Epoch};
 
 use crate::controller::{set_handler, Control};
-use crate::{Calculation, Problem, Reason, State};
+use crate::{Calculation, Output, Problem, Reason, State};
 
 pub type Error = Box<dyn std::error::Error>;
 
@@ -48,11 +48,7 @@ pub struct Runner<C, P, S, R> {
     signals: Vec<Killswitch>,
 }
 
-impl<C, P, S, R> Runner<C, P, S, R>
-where
-    C: Calculation<P, S>,
-    S: State,
-{
+impl<C, P, S, R> Runner<C, P, S, R> {
     fn now(&self) -> Result<Option<Epoch>, hifitime::errors::Errors> {
         if self.time {
             return Ok(Some(Epoch::now()?));
@@ -85,7 +81,13 @@ where
 
         Ok(received_kill_signal_from_control_c)
     }
+}
 
+impl<C, P, S, R> Runner<C, P, S, R>
+where
+    C: Calculation<P, S>,
+    S: State,
+{
     fn kill_signal_received(&self) -> bool {
         self.signals
             .iter()
@@ -128,11 +130,38 @@ where
         state.update();
         Ok(state)
     }
+
+    /// Execute the runner
+    fn run(mut self) -> Result<Output<C, P, S>, Error> {
+        // Todo: Load checkpoints?
+        let start_time = self.now()?;
+
+        let mut state = self.state.take().unwrap();
+
+        // TODO: This only really matters is there is a checkpoint loaded, at the moment we have
+        // none so the check is redundant
+        state = if !state.is_initialised() {
+            self.initialise(state)?
+        } else {
+            state
+        };
+
+        loop {
+            if self.kill_signal_received() {
+                state = state.terminate_due_to(self.kill_cause().unwrap());
+                break;
+            }
+            state = self.once(state, start_time.as_ref())?;
+        }
+
+        state = self.finalise(state)?;
+
+        Ok(Output::new(self.problem, self.calculation, state))
+    }
 }
 
 impl<C, P, S, R> Runner<C, P, S, R>
 where
-    S: State,
     R: Control + 'static,
 {
     fn initialise_kill_signal_handler(&mut self) -> Result<Arc<AtomicBool>, Error> {
@@ -148,16 +177,11 @@ where
     }
 }
 
-pub trait Run {
-    fn run(self) -> Result<(), Error>;
+pub trait InitialiseRunner {
     fn initialise_controllers(&mut self) -> Result<(), Error>;
 }
 
-impl<C, P, S> Run for Runner<C, P, S, ()>
-where
-    C: Calculation<P, S>,
-    S: State,
-{
+impl<C, P, S> InitialiseRunner for Runner<C, P, S, ()> {
     fn initialise_controllers(&mut self) -> Result<(), Error> {
         let received_kill_signal_from_control_c = Killswitch {
             caller: Caller::CtrlC,
@@ -166,39 +190,10 @@ where
         self.signals = vec![received_kill_signal_from_control_c];
         Ok(())
     }
-
-    /// Execute the runner
-    fn run(mut self) -> Result<(), Error> {
-        // Todo: Load checkpoints?
-        let start_time = self.now()?;
-        self.initialise_controllers()?;
-
-        let mut state = self.state.take().unwrap();
-
-        state = if !state.is_initialised() {
-            self.initialise(state)?
-        } else {
-            state
-        };
-
-        while !self.kill_signal_received() {
-            state = self.once(state, start_time.as_ref())?;
-        }
-
-        state = self.finalise(state)?;
-
-        if let Some(reason) = self.kill_cause() {
-            state = state.terminate_due_to(reason);
-        }
-
-        Ok(())
-    }
 }
 
-impl<C, P, S, R> Run for Runner<C, P, S, R>
+impl<C, P, S, R> InitialiseRunner for Runner<C, P, S, R>
 where
-    C: Calculation<P, S>,
-    S: State,
     R: Control + 'static,
 {
     fn initialise_controllers(&mut self) -> Result<(), Error> {
@@ -215,40 +210,6 @@ where
             received_kill_signal_from_control_c,
             received_kill_signal_from_controller,
         ];
-        Ok(())
-    }
-
-    /// Execute the runner
-    fn run(mut self) -> Result<(), Error> {
-        // Todo: Load checkpoints?
-        let start_time = self.now()?;
-        self.initialise_controllers()?;
-
-        let received_kill_signal_from_control_c = self.initialise_control_c()?;
-        let received_kill_signal_from_controller = self.initialise_kill_signal_handler()?;
-
-        let mut state = self.state.take().unwrap();
-
-        // TODO: This only really matters is there is a checkpoint loaded, at the moment we have
-        // none so the check is redundant
-        state = if !state.is_initialised() {
-            self.initialise(state)?
-        } else {
-            state
-        };
-
-        while !received_kill_signal_from_control_c.load(Ordering::SeqCst)
-            & !received_kill_signal_from_controller.load(Ordering::SeqCst)
-        {
-            state = self.once(state, start_time.as_ref())?;
-        }
-
-        state = self.finalise(state)?;
-
-        if let Some(reason) = self.kill_cause() {
-            state = state.terminate_due_to(reason);
-        }
-
         Ok(())
     }
 }

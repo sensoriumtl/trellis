@@ -1,4 +1,4 @@
-use super::Runner;
+use super::{Error, InitialiseRunner, Runner};
 use crate::{Calculation, Control, Problem, State};
 
 pub trait GenerateBuilder<P, S>: Sized {
@@ -67,8 +67,8 @@ impl<C, P, S> Builder<C, P, S, ()> {
         }
     }
 
-    pub fn build(self) -> Runner<C, P, S, ()> {
-        Runner {
+    pub fn build(self) -> Result<Runner<C, P, S, ()>, Error> {
+        let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,
             state: Some(self.state),
@@ -76,16 +76,18 @@ impl<C, P, S> Builder<C, P, S, ()> {
             control_c: self.control_c,
             controller: None,
             signals: vec![],
-        }
+        };
+        runner.initialise_controllers()?;
+        Ok(runner)
     }
 }
 
 impl<C, P, S, R> Builder<C, P, S, R>
 where
-    R: Control,
+    R: Control + 'static,
 {
-    pub fn build(self) -> Runner<C, P, S, R> {
-        Runner {
+    pub fn build(self) -> Result<Runner<C, P, S, R>, Error> {
+        let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,
             state: Some(self.state),
@@ -93,6 +95,8 @@ where
             control_c: self.control_c,
             controller: Some(self.controller),
             signals: vec![],
-        }
+        };
+        runner.initialise_controllers()?;
+        Ok(runner)
     }
 }

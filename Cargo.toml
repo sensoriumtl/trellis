@@ -8,3 +8,8 @@ edition = "2021"
 [dependencies]
 ctrlc = { version = "3", optional = true }
 hifitime = "3.9.0"
+tokio = { version = "1", features = ["sync"], optional = true }
+
+[features]
+tokio = ["dep:tokio"]
+ctrlc = ["dep:ctrlc"]
