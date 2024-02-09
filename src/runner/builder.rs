@@ -2,7 +2,7 @@ use super::{Error, InitialiseRunner, Runner};
 use crate::{Calculation, Control, Problem, State};
 
 pub trait GenerateBuilder<P, S>: Sized {
-    fn builder(self, problem: P) -> Builder<Self, P, S, ()>;
+    fn build_for(self, problem: P) -> Builder<Self, P, S, ()>;
 }
 
 impl<C, P, S> GenerateBuilder<P, S> for C
@@ -10,7 +10,7 @@ where
     C: Calculation<P, S>,
     S: State,
 {
-    fn builder(self, problem: P) -> Builder<Self, P, S, ()> {
+    fn build_for(self, problem: P) -> Builder<Self, P, S, ()> {
         Builder {
             problem,
             calculation: self,
@@ -67,7 +67,7 @@ impl<C, P, S> Builder<C, P, S, ()> {
         }
     }
 
-    pub fn build(self) -> Result<Runner<C, P, S, ()>, Error> {
+    pub fn finalise(self) -> Result<Runner<C, P, S, ()>, Error> {
         let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,
@@ -86,7 +86,7 @@ impl<C, P, S, R> Builder<C, P, S, R>
 where
     R: Control + 'static,
 {
-    pub fn build(self) -> Result<Runner<C, P, S, R>, Error> {
+    pub fn finalise(self) -> Result<Runner<C, P, S, R>, Error> {
         let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,

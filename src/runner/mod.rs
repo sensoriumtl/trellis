@@ -9,6 +9,7 @@ use hifitime::{Duration, Epoch};
 
 use crate::controller::{set_handler, Control};
 use crate::{Calculation, Output, Problem, Reason, State};
+pub use builder::GenerateBuilder;
 
 pub type Error = Box<dyn std::error::Error>;
 
@@ -122,6 +123,10 @@ where
             state.record_time(total_duration);
         }
 
+        if let Some(total_duration) = self.duration_since(maybe_start_time)? {
+            state.record_time(total_duration);
+        }
+
         Ok(state)
     }
 
@@ -132,7 +137,7 @@ where
     }
 
     /// Execute the runner
-    fn run(mut self) -> Result<Output<C, P, S>, Error> {
+    pub fn run(mut self) -> Result<Output<C, P, S>, Error> {
         // Todo: Load checkpoints?
         let start_time = self.now()?;
 
@@ -149,6 +154,9 @@ where
         loop {
             if self.kill_signal_received() {
                 state = state.terminate_due_to(self.kill_cause().unwrap());
+                break;
+            }
+            if state.is_terminated() {
                 break;
             }
             state = self.once(state, start_time.as_ref())?;
