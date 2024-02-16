@@ -1,5 +1,8 @@
 use super::{Error, InitialiseRunner, Runner};
-use crate::{Calculation, Control, Problem, State};
+use crate::{
+    watchers::{Frequency, Watch, Watchers},
+    Calculation, Control, Problem, State,
+};
 
 pub trait GenerateBuilder<P, S>: Sized {
     fn build_for(self, problem: P) -> Builder<Self, P, S, ()>;
@@ -18,6 +21,7 @@ where
             time: true,
             control_c: false,
             controller: (),
+            watchers: Watchers::default(),
         }
     }
 }
@@ -29,6 +33,7 @@ pub struct Builder<C, P, S, R> {
     time: bool,
     control_c: bool,
     controller: R,
+    watchers: Watchers<S>,
 }
 impl<C, P, S, R> Builder<C, P, S, R> {
     #[must_use]
@@ -52,6 +57,12 @@ impl<C, P, S, R> Builder<C, P, S, R> {
         self.state = state;
         self
     }
+
+    #[must_use]
+    pub fn with_watcher<W: Watch<S> + 'static>(mut self, watcher: W, frequency: Frequency) -> Self {
+        self.watchers = self.watchers.add(watcher, frequency);
+        self
+    }
 }
 
 impl<C, P, S> Builder<C, P, S, ()> {
@@ -64,6 +75,7 @@ impl<C, P, S> Builder<C, P, S, ()> {
             time: self.time,
             control_c: self.control_c,
             controller,
+            watchers: self.watchers,
         }
     }
 
@@ -76,6 +88,7 @@ impl<C, P, S> Builder<C, P, S, ()> {
             control_c: self.control_c,
             controller: None,
             signals: vec![],
+            watchers: self.watchers,
         };
         runner.initialise_controllers()?;
         Ok(runner)
@@ -95,6 +108,7 @@ where
             control_c: self.control_c,
             controller: Some(self.controller),
             signals: vec![],
+            watchers: self.watchers,
         };
         runner.initialise_controllers()?;
         Ok(runner)

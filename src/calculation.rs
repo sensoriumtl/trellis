@@ -1,8 +1,22 @@
-use crate::Problem;
+use crate::{kv::KV, Problem};
 
 pub trait Calculation<P, S> {
+    /// The error associated with the problem
     type Error: std::error::Error + 'static;
-    fn initialise(&mut self, problem: &mut Problem<P>, state: S) -> Result<S, Self::Error>;
-    fn next(&mut self, problem: &mut Problem<P>, state: S) -> Result<S, Self::Error>;
-    fn finalise(&mut self, problem: &mut Problem<P>, state: S) -> Result<S, Self::Error>;
+
+    const NAME: &'static str;
+    /// Initialisation
+    fn initialise(
+        &mut self,
+        problem: &mut Problem<P>,
+        state: S,
+    ) -> Result<(S, Option<KV>), Self::Error>;
+    /// One iteration of the core algorithm
+    fn next(&mut self, problem: &mut Problem<P>, state: S) -> Result<(S, Option<KV>), Self::Error>;
+    /// Any steps to be taken on convergence
+    fn finalise(
+        &mut self,
+        problem: &mut Problem<P>,
+        state: S,
+    ) -> Result<(S, Option<KV>), Self::Error>;
 }

@@ -7,15 +7,29 @@ use std::sync::{
 
 use hifitime::{Duration, Epoch};
 
-use crate::controller::{set_handler, Control};
+use crate::{
+    controller::{set_handler, Control},
+    watchers::{Watch, Watchers},
+    KV,
+};
 use crate::{Calculation, Output, Problem, Reason, State};
 pub use builder::GenerateBuilder;
 
 pub type Error = Box<dyn std::error::Error>;
 
+#[derive(Copy, Clone)]
 pub enum Caller {
     CtrlC,
     Controller,
+}
+
+impl Into<Reason> for Caller {
+    fn into(self) -> Reason {
+        match self {
+            Self::CtrlC => Reason::ControlC,
+            Self::Controller => Reason::Controller,
+        }
+    }
 }
 
 pub struct Killswitch {
@@ -47,6 +61,7 @@ pub struct Runner<C, P, S, R> {
     controller: Option<R>,
     ///
     signals: Vec<Killswitch>,
+    watchers: Watchers<S>,
 }
 
 impl<C, P, S, R> Runner<C, P, S, R> {
@@ -90,49 +105,49 @@ where
     S: State,
 {
     fn kill_signal_received(&self) -> bool {
-        self.signals
-            .iter()
-            .any(|signal| signal.inner.load(Ordering::SeqCst))
+        self.signals.iter().any(|signal| signal.is_dead())
     }
 
     fn kill_cause(&self) -> Option<Reason> {
         self.signals
             .iter()
-            .filter(|signal| signal.inner.load(Ordering::SeqCst))
+            .filter(|signal| signal.is_dead())
             .next()
-            .map(|signal| match signal.caller {
-                Caller::CtrlC => Reason::ControlC,
-                Caller::Controller => Reason::Controller,
-            })
+            .map(|signal| signal.caller.into())
     }
 
     fn initialise(&mut self, mut state: S) -> Result<S, Error> {
-        state = self.calculation.initialise(&mut self.problem, state)?;
+        let (mut state, kv) = self.calculation.initialise(&mut self.problem, state)?;
+        let kv = kv.unwrap_or(KV::new());
+
         state.update();
+        self.watchers.watch_initialisation(C::NAME, &kv)?;
         Ok(state)
     }
 
     fn once(&mut self, mut state: S, maybe_start_time: Option<&Epoch>) -> Result<S, Error> {
+        self.watchers.initialise_iteration(C::NAME)?;
         let maybe_iteration_start_time = self.now()?;
 
-        state = self.calculation.next(&mut self.problem, state)?;
+        let (mut state, kv) = self.calculation.next(&mut self.problem, state)?;
+        let kv = kv.unwrap_or(KV::new());
 
+        if let Some(total_duration) = self.duration_since(maybe_start_time)? {
+            state.record_time(total_duration);
+        }
+        state.increment_iteration();
         state.update();
-
-        if let Some(total_duration) = self.duration_since(maybe_start_time)? {
-            state.record_time(total_duration);
-        }
-
-        if let Some(total_duration) = self.duration_since(maybe_start_time)? {
-            state.record_time(total_duration);
-        }
-
+        self.watchers.watch_iteration(&state, &kv)?;
         Ok(state)
     }
 
     fn finalise(&mut self, mut state: S) -> Result<S, Error> {
-        state = self.calculation.finalise(&mut self.problem, state)?;
+        let (mut state, kv) = self.calculation.finalise(&mut self.problem, state)?;
+        let kv = kv.unwrap_or(KV::new());
+
         state.update();
+        self.watchers.watch_finalisation(&state, &kv)?;
+        self.watchers.finalise_watcher(C::NAME)?;
         Ok(state)
     }
 
@@ -143,7 +158,7 @@ where
 
         let mut state = self.state.take().unwrap();
 
-        // TODO: This only really matters is there is a checkpoint loaded, at the moment we have
+        // TODO: This only really matters if there is a checkpoint loaded, at the moment we have
         // none so the check is redundant
         state = if !state.is_initialised() {
             self.initialise(state)?

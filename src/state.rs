@@ -16,6 +16,8 @@ pub enum Reason {
 pub trait State {
     fn new() -> Self;
     fn record_time(&mut self, duration: Duration);
+    fn increment_iteration(&mut self);
+    fn current_iteration(&self) -> usize;
     fn update(&mut self);
     fn is_initialised(&self) -> bool;
     fn is_terminated(&self) -> bool;

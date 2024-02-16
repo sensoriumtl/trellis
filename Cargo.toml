@@ -8,8 +8,20 @@ edition = "2021"
 [dependencies]
 ctrlc = { version = "3", optional = true }
 hifitime = "3.9.0"
+serde = "1.0.196"
+slog = { version = "2", optional = true }
+slog-async = { version = "2", optional = true }
+slog-term = { version = "2", optional = true }
+thiserror = "1.0.57"
 tokio = { version = "1", features = ["sync"], optional = true }
+tracing = { version = "0.1.40", optional = true }
 
 [features]
+default = ["tokio", "ctrlc", "slog", "tracing"]
 tokio = ["dep:tokio"]
 ctrlc = ["dep:ctrlc"]
+slog = ["dep:slog", "dep:slog-async", "dep:slog-term"]
+tracing = ["dep:tracing"]
+
+[dev-dependencies]
+tracing-subscriber = "0.3.18"
