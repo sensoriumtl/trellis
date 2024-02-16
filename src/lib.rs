@@ -1,6 +1,7 @@
 mod calculation;
 mod controller;
 mod kv;
+mod plotters;
 pub mod prelude;
 mod problem;
 mod result;
@@ -16,7 +17,7 @@ pub use problem::Problem;
 pub use result::Output;
 pub use runner::GenerateBuilder;
 pub use state::{Reason, State, Status};
-pub use watchers::{FileWriter, Frequency, Target};
+pub use watchers::{FileWriter, Frequency, PlotGenerator, Target};
 pub use writers::WriteToFileSerializer;
 
 #[cfg(feature = "slog")]

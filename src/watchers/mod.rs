@@ -3,13 +3,21 @@ use std::sync::{Arc, Mutex};
 use crate::{kv::KV, writers::WriterError, State};
 
 mod file;
-pub use file::{FileWriter, Target};
+pub use file::FileWriter;
+
+mod plot;
+pub use plot::PlotGenerator;
 
 #[cfg(feature = "slog")]
 mod slog;
 
 #[cfg(feature = "slog")]
 pub use slog::SlogLogger;
+
+pub enum Target {
+    Param,
+    Measure,
+}
 
 pub(crate) struct Watchers<S> {
     watchers: Vec<(Arc<Mutex<dyn Watch<S>>>, Frequency)>,

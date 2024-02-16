@@ -6,12 +6,7 @@ use crate::{
     State, KV,
 };
 
-use super::{Watch, WatchError};
-
-pub enum Target {
-    Param,
-    Measure,
-}
+use super::{Target, Watch, WatchError};
 
 pub struct FileWriter {
     writer: Writer,
