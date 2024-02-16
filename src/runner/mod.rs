@@ -126,7 +126,6 @@ where
     }
 
     fn once(&mut self, mut state: S, maybe_start_time: Option<&Epoch>) -> Result<S, Error> {
-        self.watchers.initialise_iteration(C::NAME)?;
         let maybe_iteration_start_time = self.now()?;
 
         let (mut state, kv) = self.calculation.next(&mut self.problem, state)?;
@@ -146,8 +145,7 @@ where
         let kv = kv.unwrap_or(KV::new());
 
         state.update();
-        self.watchers.watch_finalisation(&state, &kv)?;
-        self.watchers.finalise_watcher(C::NAME)?;
+        self.watchers.watch_finalisation(C::NAME, &kv)?;
         Ok(state)
     }
 

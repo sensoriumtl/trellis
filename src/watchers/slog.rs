@@ -64,7 +64,13 @@ where
     I: State,
 {
     fn serialize(&self, _record: &Record, serializer: &mut dyn Serializer) -> slog::Result {
+        serializer.emit_str(Key::from("measure"), &self.0.measure().to_string())?;
+        serializer.emit_str(
+            Key::from("best measure"),
+            &self.0.best_measure().to_string(),
+        )?;
         serializer.emit_usize(Key::from("iter"), self.0.current_iteration())?;
+        serializer.emit_usize(Key::from("iter since best"), self.0.iterations_since_best())?;
         Ok(())
     }
 }
@@ -85,15 +91,15 @@ where
     /// Log basic information about the optimization after initialization.
     fn watch_initialisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
         match self.level {
-            Level::Info => info!(self.logger, "{}", name; kv),
+            Level::Info => info!(self.logger, "starting: {}", name; kv),
             _ => todo!(),
         };
         Ok(())
     }
 
-    fn watch_finalisation(&mut self, state: &S, kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_finalisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
         match self.level {
-            Level::Info => info!(self.logger, ""; LogState(state), kv),
+            Level::Info => info!(self.logger, "finished: {}", name; kv),
             _ => todo!(),
         };
         Ok(())

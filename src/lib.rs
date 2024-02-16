@@ -7,6 +7,7 @@ mod result;
 mod runner;
 mod state;
 mod watchers;
+mod writers;
 
 pub use calculation::Calculation;
 pub(crate) use controller::Control;
@@ -15,7 +16,8 @@ pub use problem::Problem;
 pub use result::Output;
 pub use runner::GenerateBuilder;
 pub use state::{Reason, State, Status};
-pub use watchers::Frequency;
+pub use watchers::{FileWriter, Frequency, Target};
+pub use writers::WriteToFileSerializer;
 
-#[cfg(feature = "tracing")]
-pub use watchers::TracingLogger;
+#[cfg(feature = "slog")]
+pub use watchers::SlogLogger;
