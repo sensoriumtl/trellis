@@ -1,4 +1,4 @@
-use std::{fs::File, path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use hifitime::Duration;
 use runner::prelude::*;
@@ -114,7 +114,7 @@ impl Calculation<DummyProblem, DummyState> for DummyCalculation {
         _problem: &mut Problem<DummyProblem>,
         mut state: DummyState,
     ) -> Result<(DummyState, Option<KV>), Self::Error> {
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        std::thread::sleep(std::time::Duration::from_millis(100));
 
         if state.iteration >= 100 {
             state = state.terminate_due_to(Reason::ExceededMaxIterations);
@@ -142,6 +142,14 @@ fn problems_run_successfully() {
     let iden = "calculation_time".to_string();
     let outdir = PathBuf::from(r"/Users/cgubbin/sensorium/tooling/runner/out/");
 
+    let config = PlotConfig {
+        x_limits: 0.0..100.0,
+        y_limits: None,
+        x_label: "Iteration".into(),
+        y_label: "Measure".into(),
+        title: "Optimisation Progress".into(),
+    };
+
     let runner = calculation
         .build_for(problem)
         .with_watcher(SlogLogger::terminal(Level::Info), Frequency::Always)
@@ -155,7 +163,7 @@ fn problems_run_successfully() {
             Frequency::Always,
         )
         .with_watcher(
-            PlotGenerator::new(outdir, iden, config, nodes, Target::Measure),
+            PlotGenerator::measure(outdir, iden, config),
             Frequency::Always,
         )
         .finalise()

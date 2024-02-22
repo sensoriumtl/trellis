@@ -31,11 +31,11 @@ impl<R> PlotGenerator<R>
 where
     R: Clone + Default + PartialOrd + TrellisFloat + 'static,
 {
-    pub(crate) fn param<'a>(
+    pub fn param(
         dir: PathBuf,
         identifier: String,
         config: PlotConfig<R>,
-        nodes: ArrayView1<'a, R>,
+        nodes: ArrayView1<'_, R>,
         target: Target,
     ) -> Self {
         Self {
@@ -44,9 +44,8 @@ where
         }
     }
 
-    pub(crate) fn measure<'a>(dir: PathBuf, identifier: String, config: PlotConfig<R>) -> Self {
+    pub fn measure<'a>(dir: PathBuf, identifier: String, config: PlotConfig<R>) -> Self {
         Self {
-            // TODO: Should be a scatter plotter: different impl
             plotter: Plotter::new(dir, identifier, config, None),
             target: Target::Measure,
         }
@@ -62,7 +61,7 @@ where
     <I as State>::Param: Clone + Into<Array1<R>>,
     R: Clone + Default + PartialOrd + TrellisFloat + 'static,
 {
-    fn watch_iteration(&mut self, state: &I, kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_iteration(&mut self, state: &I, _kv: &KV) -> Result<(), super::WatchError> {
         match self.target {
             Target::Param => {
                 if let Some(param) = state.get_param() {

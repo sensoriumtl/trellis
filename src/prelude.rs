@@ -2,6 +2,7 @@ pub use crate::Calculation;
 pub use crate::FileWriter;
 pub use crate::Frequency;
 pub use crate::GenerateBuilder;
+pub use crate::PlotConfig;
 pub use crate::PlotGenerator;
 pub use crate::Problem;
 pub use crate::Reason;

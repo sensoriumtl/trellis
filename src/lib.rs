@@ -13,6 +13,7 @@ mod writers;
 pub use calculation::Calculation;
 pub(crate) use controller::Control;
 pub use kv::KV;
+pub use plotters::PlotConfig;
 pub use problem::Problem;
 pub use result::Output;
 pub use runner::GenerateBuilder;

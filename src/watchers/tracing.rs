@@ -1,4 +1,4 @@
-use tracing::{debug, error, info, trace, warn, Level, Value};
+use tracing::{debug, info, trace, Level, Value};
 
 use crate::watchers::Watch;
 use crate::{kv::KV, state::State};
@@ -27,7 +27,7 @@ where
     F: Value,
 {
     /// Log basic information about the optimization after initialization.
-    fn watch_initialisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_initialisation(&mut self, name: &str, _kv: &KV) -> Result<(), super::WatchError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),
@@ -39,7 +39,7 @@ where
         Ok(())
     }
 
-    fn watch_finalisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_finalisation(&mut self, name: &str, _kv: &KV) -> Result<(), super::WatchError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),

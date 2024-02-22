@@ -24,11 +24,11 @@ pub enum Caller {
     Controller,
 }
 
-impl Into<Reason> for Caller {
-    fn into(self) -> Reason {
-        match self {
-            Self::CtrlC => Reason::ControlC,
-            Self::Controller => Reason::Controller,
+impl From<Caller> for Reason {
+    fn from(val: Caller) -> Self {
+        match val {
+            Caller::CtrlC => Reason::ControlC,
+            Caller::Controller => Reason::Controller,
         }
     }
 }
@@ -111,14 +111,12 @@ where
 
     fn kill_cause(&self) -> Option<Reason> {
         self.signals
-            .iter()
-            .filter(|signal| signal.is_dead())
-            .next()
+            .iter().find(|signal| signal.is_dead())
             .map(|signal| signal.caller.into())
     }
 
     #[instrument(name = "initialising runner", skip_all)]
-    fn initialise(&mut self, mut state: S) -> Result<S, Error> {
+    fn initialise(&mut self, state: S) -> Result<S, Error> {
         let (mut state, kv) = self.calculation.initialise(&mut self.problem, state)?;
         let kv = kv.unwrap_or(KV::new());
 
@@ -128,8 +126,8 @@ where
     }
 
     #[instrument(name = "performing iteration", skip_all)]
-    fn once(&mut self, mut state: S, maybe_start_time: Option<&Epoch>) -> Result<S, Error> {
-        let maybe_iteration_start_time = self.now()?;
+    fn once(&mut self, state: S, maybe_start_time: Option<&Epoch>) -> Result<S, Error> {
+        let _maybe_iteration_start_time = self.now()?;
 
         let (mut state, kv) = self.calculation.next(&mut self.problem, state)?;
         let kv = kv.unwrap_or(KV::new());
@@ -144,7 +142,7 @@ where
     }
 
     #[instrument(name = "finalising runner", skip_all)]
-    fn finalise(&mut self, mut state: S) -> Result<S, Error> {
+    fn finalise(&mut self, state: S) -> Result<S, Error> {
         let (mut state, kv) = self.calculation.finalise(&mut self.problem, state)?;
         let kv = kv.unwrap_or(KV::new());
 

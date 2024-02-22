@@ -106,6 +106,12 @@ pub struct KV {
     pub kv: HashMap<&'static str, KvValue>,
 }
 
+impl Default for KV {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KV {
     pub fn new() -> Self {
         Self { kv: HashMap::new() }
