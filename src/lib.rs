@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod calculation;
 mod controller;
 mod kv;

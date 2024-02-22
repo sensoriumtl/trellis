@@ -22,6 +22,7 @@ pub enum Target {
     Measure,
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) struct Watchers<S> {
     watchers: Vec<(Arc<Mutex<dyn Watch<S>>>, Frequency)>,
 }
@@ -41,7 +42,7 @@ impl<S> Watchers<S> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum WatchError {
+pub enum WatchError {
     #[error("error in writer")]
     Writer(#[from] WriterError),
 }
@@ -60,7 +61,7 @@ impl Default for Frequency {
     }
 }
 
-pub(crate) trait Watch<S> {
+pub trait Watch<S> {
     fn watch_initialisation(&mut self, _name: &str, _kv: &KV) -> Result<(), WatchError> {
         Ok(())
     }

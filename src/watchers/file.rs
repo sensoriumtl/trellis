@@ -75,7 +75,7 @@ where
             Target::Measure => {
                 let iter = state.current_iteration();
                 let measure = state.measure();
-                self.writer.write_pair(iter, measure);
+                self.writer.write_pair(iter, measure)?;
             }
         }
         Ok(())

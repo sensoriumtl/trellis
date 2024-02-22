@@ -44,7 +44,7 @@ where
         }
     }
 
-    pub fn measure<'a>(dir: PathBuf, identifier: String, config: PlotConfig<R>) -> Self {
+    pub fn measure(dir: PathBuf, identifier: String, config: PlotConfig<R>) -> Self {
         Self {
             plotter: Plotter::new(dir, identifier, config, None),
             target: Target::Measure,

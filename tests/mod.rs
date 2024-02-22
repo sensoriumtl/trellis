@@ -169,5 +169,5 @@ fn problems_run_successfully() {
         .finalise()
         .expect("failed to build problem");
 
-    let result = runner.run();
+    let _result = runner.run();
 }

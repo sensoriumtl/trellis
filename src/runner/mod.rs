@@ -111,7 +111,8 @@ where
 
     fn kill_cause(&self) -> Option<Reason> {
         self.signals
-            .iter().find(|signal| signal.is_dead())
+            .iter()
+            .find(|signal| signal.is_dead())
             .map(|signal| signal.caller.into())
     }
 
