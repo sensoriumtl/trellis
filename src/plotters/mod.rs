@@ -78,15 +78,25 @@ where
         mut output_directory: PathBuf,
         filename: String,
         config: PlotConfig<R>,
-        nodes: ArrayView1<'a, R>,
+        nodes: Option<ArrayView1<'a, R>>,
     ) -> Self {
         output_directory.push(format!("{filename}.html"));
         Self {
             output_path: output_directory,
             plot: Plot::new(),
             config,
-            grid_points: nodes.to_owned(),
+            grid_points: nodes
+                .map(|nodes| nodes.to_owned())
+                .unwrap_or(Array1::default(0)),
         }
+    }
+
+    pub(crate) fn plot_point(&mut self, iteration: usize, point: R) -> Result<(), PlotterError> {
+        let point = Scatter::new(vec![iteration], vec![point]);
+        self.plot.add_trace(point);
+        self.plot.set_layout(self.config.to_layout());
+        self.plot.write_html(&self.output_path);
+        return Ok(());
     }
 
     pub(crate) fn plot_line<'a, P: PlottableLine<'a, R>>(

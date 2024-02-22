@@ -13,6 +13,15 @@ pub enum WriteToFileSerializer {
     JSON,
 }
 
+impl WriteToFileSerializer {
+    fn extension(&self) -> &str {
+        match self {
+            WriteToFileSerializer::Bincode => "bin",
+            WriteToFileSerializer::JSON => "json",
+        }
+    }
+}
+
 impl Default for WriteToFileSerializer {
     fn default() -> Self {
         Self::Bincode
@@ -60,6 +69,11 @@ pub trait Writeable {
 
     fn identifier(&self) -> &str;
     fn data(&self) -> &Self::Data;
+}
+
+pub(crate) trait Records {
+    type Record: Serialize;
+    fn records(&self) -> &[Self::Record];
 }
 
 #[derive(Serialize)]
@@ -110,10 +124,11 @@ impl Writer {
     {
         if let Some(tmp_dir) = self.tmp_dir.as_ref() {
             let fname = tmp_dir.path().join(format!(
-                "{}.arp",
+                "{}.{}",
                 self.writeable_identifier
                     .as_ref()
-                    .map_or_else(|| writeable.identifier(), |identifier| identifier)
+                    .map_or_else(|| writeable.identifier(), |identifier| identifier),
+                serializer.extension()
             ));
             let f = BufWriter::new(File::create(fname.clone())?);
 
@@ -141,7 +156,7 @@ impl Writer {
         measure: F,
     ) -> Result<(), WriterError> {
         if let Some(tmp_dir) = self.tmp_dir.as_ref() {
-            let fname = tmp_dir.path().join("measure.arp");
+            let fname = tmp_dir.path().join("measure.csv");
 
             let file = BufWriter::new(
                 OpenOptions::new()
@@ -170,6 +185,31 @@ impl Writer {
         }
         panic!("tmp_dir not found");
     }
+
+    // Write data to `tmp_dir`
+    pub(crate) fn write_records<R: Records>(
+        &mut self,
+        records: &R,
+        identifier: String,
+    ) -> Result<(), WriterError> {
+        if let Some(tmp_dir) = self.tmp_dir.as_ref() {
+            let fname = tmp_dir.path().join(format!("{}.csv", identifier));
+            let file = BufWriter::new(std::fs::File::create(fname.clone())?);
+
+            //let mut wtr = csv::Writer::from_writer(file);
+            let mut wtr = csv::WriterBuilder::new()
+                .has_headers(false)
+                .from_writer(file);
+
+            for record in records.records() {
+                wtr.serialize(record)?;
+            }
+
+            return Ok(());
+        }
+        panic!("tmp_dir not found");
+    }
+
     // Cleanup intermediate results from previous iterations
     //
     // After an iteration we get the converged result and move it to `directory`

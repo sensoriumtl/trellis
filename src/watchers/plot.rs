@@ -31,7 +31,7 @@ impl<R> PlotGenerator<R>
 where
     R: Clone + Default + PartialOrd + TrellisFloat + 'static,
 {
-    pub(crate) fn new<'a>(
+    pub(crate) fn param<'a>(
         dir: PathBuf,
         identifier: String,
         config: PlotConfig<R>,
@@ -39,7 +39,7 @@ where
         target: Target,
     ) -> Self {
         Self {
-            plotter: Plotter::new(dir, identifier, config, nodes),
+            plotter: Plotter::new(dir, identifier, config, Some(nodes)),
             target,
         }
     }
@@ -47,7 +47,7 @@ where
     pub(crate) fn measure<'a>(dir: PathBuf, identifier: String, config: PlotConfig<R>) -> Self {
         Self {
             // TODO: Should be a scatter plotter: different impl
-            plotter: Plotter::new(dir, identifier, config, nodes),
+            plotter: Plotter::new(dir, identifier, config, None),
             target: Target::Measure,
         }
     }
@@ -58,7 +58,7 @@ where
 /// state, otherwise it will skip saving silently.
 impl<I, R> Watch<I> for PlotGenerator<R>
 where
-    I: State,
+    I: State<Float = R>,
     <I as State>::Param: Clone + Into<Array1<R>>,
     R: Clone + Default + PartialOrd + TrellisFloat + 'static,
 {
@@ -74,7 +74,11 @@ where
                     self.plotter.plot_line(&item).unwrap();
                 }
             }
-            Target::Measure => unimplemented!("no scatter impl"),
+            Target::Measure => {
+                let iteration = state.current_iteration();
+                let measure = state.measure();
+                self.plotter.plot_point(iteration, measure).unwrap();
+            }
         }
         Ok(())
     }
