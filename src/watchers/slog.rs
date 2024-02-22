@@ -1,6 +1,6 @@
 use crate::watchers::Watch;
 use crate::{kv::KV, state::State};
-use slog::{info, o, Drain, Key, Level, Logger, Record, Serializer};
+use slog::{debug, info, o, trace, Drain, Key, Level, Logger, Record, Serializer};
 use slog_async::OverflowStrategy;
 
 /// A logger using the [`slog`](https://crates.io/crates/slog) crate as backend.
@@ -18,7 +18,10 @@ impl SlogLogger {
     /// application the log level and drain may be globally determined.
     ///
     /// This uses the parent logger implementation, rather than creating a new one.
-    pub fn parent(logger: &Logger, level: Level) -> Self {
+    pub fn using(logger: &Logger, level: Level) -> Self {
+        if matches!(level, Level::Error | Level::Warning) {
+            panic!("we won't emit non-error messages at ERROR or WARNING...");
+        }
         Self {
             logger: logger.clone(),
             level,
@@ -29,6 +32,9 @@ impl SlogLogger {
     ///
     /// Will block execution when buffer is full.
     pub fn terminal(level: Level) -> Self {
+        if matches!(level, Level::Error | Level::Warning) {
+            panic!("we won't emit non-error messages at ERROR or WARNING...");
+        }
         let logger = Self::term_internal(OverflowStrategy::Block);
         Self { logger, level }
     }
@@ -38,6 +44,9 @@ impl SlogLogger {
     /// Messages may be lost in case of buffer overflow.
     ///
     pub fn terminal_noblock(level: Level) -> Self {
+        if matches!(level, Level::Error | Level::Warning) {
+            panic!("we won't emit non-error messages at ERROR or WARNING...");
+        }
         let logger = Self::term_internal(OverflowStrategy::Drop);
         Self { logger, level }
     }
@@ -92,7 +101,11 @@ where
     fn watch_initialisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
         match self.level {
             Level::Info => info!(self.logger, "starting: {}", name; kv),
-            _ => todo!(),
+            Level::Debug => debug!(self.logger, "starting: {}", name; kv),
+            Level::Trace => trace!(self.logger, "starting: {}", name; kv),
+            _ => unreachable!(
+                "constructor does not allow warn or error level events for non-error messages"
+            ),
         };
         Ok(())
     }
@@ -100,7 +113,11 @@ where
     fn watch_finalisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
         match self.level {
             Level::Info => info!(self.logger, "finished: {}", name; kv),
-            _ => todo!(),
+            Level::Debug => debug!(self.logger, "finished: {}", name; kv),
+            Level::Trace => trace!(self.logger, "finished: {}", name; kv),
+            _ => unreachable!(
+                "constructor does not allow warn or error level events for non-error messages"
+            ),
         };
         Ok(())
     }
@@ -108,7 +125,11 @@ where
     fn watch_iteration(&mut self, state: &S, kv: &KV) -> Result<(), super::WatchError> {
         match self.level {
             Level::Info => info!(self.logger, ""; LogState(state), kv),
-            _ => todo!(),
+            Level::Debug => debug!(self.logger, ""; LogState(state), kv),
+            Level::Trace => trace!(self.logger, ""; LogState(state), kv),
+            _ => unreachable!(
+                "constructor does not allow warn or error level events for non-error messages"
+            ),
         };
         Ok(())
     }

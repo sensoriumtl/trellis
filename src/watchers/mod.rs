@@ -5,14 +5,17 @@ use crate::{kv::KV, writers::WriterError, State};
 mod file;
 pub use file::FileWriter;
 
-mod plot;
-pub use plot::PlotGenerator;
+// mod plot;
+// pub use plot::PlotGenerator;
 
 #[cfg(feature = "slog")]
 mod slog;
 
 #[cfg(feature = "slog")]
 pub use slog::SlogLogger;
+
+mod tracing;
+pub use tracing::Tracer;
 
 pub enum Target {
     Param,

@@ -21,6 +21,7 @@ slog-term = { version = "2", optional = true }
 tempfile = "3"
 thiserror = "1"
 tokio = { version = "1", features = ["sync"], optional = true }
+tracing = "0.1.40"
 
 [features]
 default = ["tokio", "ctrlc", "slog"]

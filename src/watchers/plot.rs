@@ -43,6 +43,14 @@ where
             target,
         }
     }
+
+    pub(crate) fn measure<'a>(dir: PathBuf, identifier: String, config: PlotConfig<R>) -> Self {
+        Self {
+            // TODO: Should be a scatter plotter: different impl
+            plotter: Plotter::new(dir, identifier, config, nodes),
+            target: Target::Measure,
+        }
+    }
 }
 
 /// `WriteToFile` only implements `observer_iter` and not `observe_init` to avoid saving the

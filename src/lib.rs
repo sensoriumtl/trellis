@@ -17,7 +17,7 @@ pub use problem::Problem;
 pub use result::Output;
 pub use runner::GenerateBuilder;
 pub use state::{Reason, State, Status};
-pub use watchers::{FileWriter, Frequency, PlotGenerator, Target};
+pub use watchers::{FileWriter, Frequency, Target, Tracer};
 pub use writers::WriteToFileSerializer;
 
 #[cfg(feature = "slog")]

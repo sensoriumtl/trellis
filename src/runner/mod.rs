@@ -6,6 +6,7 @@ use std::sync::{
 };
 
 use hifitime::{Duration, Epoch};
+use tracing::instrument;
 
 use crate::{
     controller::{set_handler, Control},
@@ -116,6 +117,7 @@ where
             .map(|signal| signal.caller.into())
     }
 
+    #[instrument(name = "initialising runner", skip_all)]
     fn initialise(&mut self, mut state: S) -> Result<S, Error> {
         let (mut state, kv) = self.calculation.initialise(&mut self.problem, state)?;
         let kv = kv.unwrap_or(KV::new());
@@ -125,6 +127,7 @@ where
         Ok(state)
     }
 
+    #[instrument(name = "performing iteration", skip_all)]
     fn once(&mut self, mut state: S, maybe_start_time: Option<&Epoch>) -> Result<S, Error> {
         let maybe_iteration_start_time = self.now()?;
 
@@ -140,6 +143,7 @@ where
         Ok(state)
     }
 
+    #[instrument(name = "finalising runner", skip_all)]
     fn finalise(&mut self, mut state: S) -> Result<S, Error> {
         let (mut state, kv) = self.calculation.finalise(&mut self.problem, state)?;
         let kv = kv.unwrap_or(KV::new());

@@ -146,7 +146,16 @@ fn problems_run_successfully() {
         .build_for(problem)
         .with_watcher(SlogLogger::terminal(Level::Info), Frequency::Always)
         .with_watcher(
-            FileWriter::new(outdir, iden, WriteToFileSerializer::JSON, Target::Measure),
+            FileWriter::new(
+                outdir.clone(),
+                iden.clone(),
+                WriteToFileSerializer::JSON,
+                Target::Measure,
+            ),
+            Frequency::Always,
+        )
+        .with_watcher(
+            PlotGenerator::new(outdir, iden, config, nodes, Target::Measure),
             Frequency::Always,
         )
         .finalise()
