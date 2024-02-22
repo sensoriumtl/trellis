@@ -1,30 +1,41 @@
 [package]
-name = "runner"
+name = "trellis"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bincode = "1"
-csv = "1.3.0"
+bincode = { version = "1", optional = true }
+csv = { version = "1.3.0", optional = true }
 ctrlc = { version = "3", optional = true }
-fs-err = "2"
-hifitime = "3"
-ndarray = "0.15.6"
-plotly = { version = "0.8.4", features = ["plotly_ndarray", "ndarray"] }
+fs-err = { version = "2", optional = true }
+hifitime = "3.9.0"
+ndarray = { version = "0.15.6", optional = true }
+plotly = { version = "0.8.4", features = [
+    "plotly_ndarray",
+    "ndarray",
+], optional = true }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", optional = true }
 slog = { version = "2", optional = true }
 slog-async = { version = "2", optional = true }
 slog-term = { version = "2", optional = true }
-tempfile = "3"
+tempfile = { version = "3", optional = true }
 thiserror = "1"
 tokio = { version = "1", features = ["sync"], optional = true }
 tracing = "0.1.40"
 
 [features]
-default = ["tokio", "ctrlc", "slog"]
+default = ["tokio", "ctrlc", "slog", "plotting", "writing"]
 tokio = ["dep:tokio"]
 ctrlc = ["dep:ctrlc"]
 slog = ["dep:slog", "dep:slog-async", "dep:slog-term"]
+plotting = ["dep:plotly", "dep:ndarray"]
+writing = [
+    "dep:tempfile",
+    "dep:serde_json",
+    "dep:bincode",
+    "dep:fs-err",
+    "dep:csv",
+]

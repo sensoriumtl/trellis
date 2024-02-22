@@ -69,13 +69,17 @@ where
                         identifier: format!("{iter}"),
                         data: param,
                     };
-                    self.writer.write(self.serializer, &writeable)?;
+                    self.writer
+                        .write(self.serializer, &writeable)
+                        .map_err(|e| WatchError::Writer(Box::new(e)))?;
                 }
             }
             Target::Measure => {
                 let iter = state.current_iteration();
                 let measure = state.measure();
-                self.writer.write_pair(iter, measure)?;
+                self.writer
+                    .write_pair(iter, measure)
+                    .map_err(|e| WatchError::Writer(Box::new(e)))?;
             }
         }
         Ok(())

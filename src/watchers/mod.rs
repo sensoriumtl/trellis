@@ -1,11 +1,19 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{kv::KV, writers::WriterError, State};
+use crate::{kv::KV, State};
 
+#[cfg(feature = "writing")]
 mod file;
+
+#[cfg(feature = "writing")]
+use crate::writers::WriterError;
+
+#[cfg(feature = "writing")]
 pub use file::FileWriter;
 
+#[cfg(feature = "plotting")]
 mod plot;
+#[cfg(feature = "plotting")]
 pub use plot::PlotGenerator;
 
 #[cfg(feature = "slog")]
@@ -44,7 +52,7 @@ impl<S> Watchers<S> {
 #[derive(Debug, thiserror::Error)]
 pub enum WatchError {
     #[error("error in writer")]
-    Writer(#[from] WriterError),
+    Writer(Box<dyn std::error::Error + 'static>), // We don't wrap the actual error, as we don't want to import the deps unless requested
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
