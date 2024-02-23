@@ -23,20 +23,25 @@ pub use kv::KV;
 
 #[cfg(feature = "plotting")]
 pub use plotters::PlotConfig;
-#[cfg(feature = "plotting")]
-pub use watchers::PlotGenerator;
+// #[cfg(feature = "plotting")]
+// pub use watchers::PlotGenerator;
 
 pub use problem::Problem;
 pub use result::Output;
 pub use runner::GenerateBuilder;
 pub use state::{Reason, State, Status};
-pub use watchers::{Frequency, Target, Tracer};
+pub use watchers::{Frequency, Target};
+// pub use watchers::Tracer;
 
-#[cfg(feature = "writing")]
-pub use watchers::FileWriter;
+// #[cfg(feature = "writing")]
+// pub use watchers::FileWriter;
 
-#[cfg(feature = "writing")]
-pub use writers::WriteToFileSerializer;
+// #[cfg(feature = "writing")]
+// pub use writers::WriteToFileSerializer;
 
-#[cfg(feature = "slog")]
-pub use watchers::SlogLogger;
+// #[cfg(feature = "slog")]
+// pub use watchers::SlogLogger;
+
+pub use hifitime::Duration;
+
+pub use state::TrellisFloat;

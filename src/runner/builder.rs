@@ -1,11 +1,11 @@
 use super::{Error, InitialiseRunner, Runner};
 use crate::{
-    watchers::{Frequency, Watch, Watchers},
+    watchers::{Frequency, Observable, Observer, ObserverVec},
     Calculation, Control, Problem, State,
 };
 
 pub trait GenerateBuilder<P, S>: Sized {
-    fn build_for(self, problem: P) -> Builder<Self, P, S, ()>;
+    fn build_for(self, problem: P) -> Builder<Self, P, S, (), ()>;
 }
 
 impl<C, P, S> GenerateBuilder<P, S> for C
@@ -13,7 +13,7 @@ where
     C: Calculation<P, S>,
     S: State,
 {
-    fn build_for(self, problem: P) -> Builder<Self, P, S, ()> {
+    fn build_for(self, problem: P) -> Builder<Self, P, S, (), ()> {
         Builder {
             problem,
             calculation: self,
@@ -21,21 +21,21 @@ where
             time: true,
             control_c: false,
             controller: (),
-            watchers: Watchers::default(),
+            observers: ObserverVec::default(),
         }
     }
 }
 
-pub struct Builder<C, P, S, R> {
+pub struct Builder<C, P, S, R, O> {
     calculation: C,
     problem: P,
     state: S,
     time: bool,
     control_c: bool,
     controller: R,
-    watchers: Watchers<S>,
+    observers: ObserverVec<O>,
 }
-impl<C, P, S, R> Builder<C, P, S, R> {
+impl<C, P, S, R, O> Builder<C, P, S, R, O> {
     #[must_use]
     pub fn control_c(mut self, control_c: bool) -> Self {
         self.control_c = control_c;
@@ -59,15 +59,20 @@ impl<C, P, S, R> Builder<C, P, S, R> {
     }
 
     #[must_use]
-    pub fn with_watcher<W: Watch<S> + 'static>(mut self, watcher: W, frequency: Frequency) -> Self {
-        self.watchers = self.watchers.add(watcher, frequency);
+    pub fn attach_observer<OBS: Observer<O> + 'static>(
+        mut self,
+        observer: OBS,
+        frequency: Frequency,
+    ) -> Self {
+        self.observers
+            .attach(std::sync::Arc::new(observer), frequency);
         self
     }
 }
 
-impl<C, P, S> Builder<C, P, S, ()> {
+impl<C, P, S, O> Builder<C, P, S, (), O> {
     #[must_use]
-    pub fn with_controller<R>(self, controller: R) -> Builder<C, P, S, R> {
+    pub fn with_controller<R>(self, controller: R) -> Builder<C, P, S, R, O> {
         Builder {
             calculation: self.calculation,
             problem: self.problem,
@@ -75,11 +80,11 @@ impl<C, P, S> Builder<C, P, S, ()> {
             time: self.time,
             control_c: self.control_c,
             controller,
-            watchers: self.watchers,
+            observers: self.observers,
         }
     }
 
-    pub fn finalise(self) -> Result<Runner<C, P, S, ()>, Error> {
+    pub fn finalise(self) -> Result<Runner<C, P, S, (), O>, Error> {
         let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,
@@ -88,18 +93,18 @@ impl<C, P, S> Builder<C, P, S, ()> {
             control_c: self.control_c,
             controller: None,
             signals: vec![],
-            watchers: self.watchers,
+            observers: self.observers,
         };
         runner.initialise_controllers()?;
         Ok(runner)
     }
 }
 
-impl<C, P, S, R> Builder<C, P, S, R>
+impl<C, P, S, R, O> Builder<C, P, S, R, O>
 where
     R: Control + 'static,
 {
-    pub fn finalise(self) -> Result<Runner<C, P, S, R>, Error> {
+    pub fn finalise(self) -> Result<Runner<C, P, S, R, O>, Error> {
         let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,
@@ -108,7 +113,7 @@ where
             control_c: self.control_c,
             controller: Some(self.controller),
             signals: vec![],
-            watchers: self.watchers,
+            observers: self.observers,
         };
         runner.initialise_controllers()?;
         Ok(runner)

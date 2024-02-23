@@ -1,26 +1,32 @@
 use std::fmt::Display;
 
 use hifitime::Duration;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub trait TrellisFloat: Display + Serialize {}
 
 impl TrellisFloat for f64 {}
 
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Status {
     Terminated(Reason),
     NotTerminated,
 }
 
-#[derive(Eq, PartialEq)]
+impl Default for Status {
+    fn default() -> Self {
+        Self::NotTerminated
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Reason {
     ControlC,
     Controller,
     ExceededMaxIterations,
 }
 
-pub trait State {
+pub trait State: Clone {
     type Float: TrellisFloat;
     type Param;
     fn new() -> Self;

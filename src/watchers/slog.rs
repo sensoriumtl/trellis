@@ -1,4 +1,4 @@
-use crate::watchers::Watch;
+use crate::watchers::{ObservationError, Observer, Stage, Subject};
 use crate::{kv::KV, state::State};
 use slog::{debug, info, o, trace, Drain, Key, Level, Logger, Record, Serializer};
 use slog_async::OverflowStrategy;
@@ -93,16 +93,24 @@ impl slog::KV for KV {
     }
 }
 
-impl<S> Watch<S> for SlogLogger
-where
-    S: State,
-{
+impl<'a, S: State> Observer for SlogLogger {
+    type Subject = Subject<'a, S>;
+    fn observe(&self, subject: &Self::Subject) {
+        match subject.stage {
+            Stage::Initialisation => self.observe_initialisation(subject.ident, subject.key_value),
+            Stage::Finalisation => self.observe_finalisation(subject.ident, subject.key_value),
+            Stage::Iteration => self.observe_iteration(subject.state, subject.key_value),
+        }
+    }
+}
+
+impl<S: State> SlogLogger {
     /// Log basic information about the optimization after initialization.
-    fn watch_initialisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
+    fn observe_initialisation(&mut self, ident: &str, kv: &KV) -> Result<(), ObservationError> {
         match self.level {
-            Level::Info => info!(self.logger, "starting: {}", name; kv),
-            Level::Debug => debug!(self.logger, "starting: {}", name; kv),
-            Level::Trace => trace!(self.logger, "starting: {}", name; kv),
+            Level::Info => info!(self.logger, "starting: {}", ident; kv),
+            Level::Debug => debug!(self.logger, "starting: {}", ident; kv),
+            Level::Trace => trace!(self.logger, "starting: {}", ident; kv),
             _ => unreachable!(
                 "constructor does not allow warn or error level events for non-error messages"
             ),
@@ -110,11 +118,11 @@ where
         Ok(())
     }
 
-    fn watch_finalisation(&mut self, name: &str, kv: &KV) -> Result<(), super::WatchError> {
+    fn observe_finalisation(&mut self, ident: &str, kv: &KV) -> Result<(), ObservationError> {
         match self.level {
-            Level::Info => info!(self.logger, "finished: {}", name; kv),
-            Level::Debug => debug!(self.logger, "finished: {}", name; kv),
-            Level::Trace => trace!(self.logger, "finished: {}", name; kv),
+            Level::Info => info!(self.logger, "finished: {}", ident; kv),
+            Level::Debug => debug!(self.logger, "finished: {}", ident; kv),
+            Level::Trace => trace!(self.logger, "finished: {}", ident; kv),
             _ => unreachable!(
                 "constructor does not allow warn or error level events for non-error messages"
             ),
@@ -122,7 +130,7 @@ where
         Ok(())
     }
 
-    fn watch_iteration(&mut self, state: &S, kv: &KV) -> Result<(), super::WatchError> {
+    fn observe_iteration(&mut self, state: &S, kv: &KV) -> Result<(), ObservationError> {
         match self.level {
             Level::Info => info!(self.logger, ""; LogState(state), kv),
             Level::Debug => debug!(self.logger, ""; LogState(state), kv),

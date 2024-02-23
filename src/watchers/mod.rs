@@ -1,56 +1,184 @@
-use std::sync::{Arc, Mutex};
+use crate::runner::Runner;
+use std::{sync::Arc, sync::Weak};
 
-use crate::{kv::KV, State};
+use crate::kv::KV;
 
-#[cfg(feature = "writing")]
-mod file;
-
-#[cfg(feature = "writing")]
-use crate::writers::WriterError;
-
-#[cfg(feature = "writing")]
-pub use file::FileWriter;
-
-#[cfg(feature = "plotting")]
-mod plot;
-#[cfg(feature = "plotting")]
-pub use plot::PlotGenerator;
-
-#[cfg(feature = "slog")]
-mod slog;
-
-#[cfg(feature = "slog")]
-pub use slog::SlogLogger;
-
-mod tracing;
-pub use tracing::Tracer;
+// #[cfg(feature = "writing")]
+// mod file;
+//
+// #[cfg(feature = "writing")]
+// use crate::writers::WriterError;
+//
+// #[cfg(feature = "writing")]
+// pub use file::FileWriter;
+//
+// #[cfg(feature = "plotting")]
+// mod plot;
+// #[cfg(feature = "plotting")]
+// pub use plot::PlotGenerator;
+//
+// #[cfg(feature = "slog")]
+// mod slog;
+//
+// #[cfg(feature = "slog")]
+// pub use slog::SlogLogger;
+//
+// mod tracing;
+// pub use tracing::Tracer;
 
 pub enum Target {
     Param,
     Measure,
 }
 
-#[allow(clippy::type_complexity)]
-pub(crate) struct Watchers<S> {
-    watchers: Vec<(Arc<Mutex<dyn Watch<S>>>, Frequency)>,
+#[derive(Copy, Clone)]
+pub(crate) enum Stage {
+    Initialisation,
+    Finalisation,
+    Iteration,
 }
 
-impl<S> Default for Watchers<S> {
-    fn default() -> Self {
-        Self { watchers: vec![] }
+#[derive(Clone)]
+pub(crate) struct ObservationData<'a, S> {
+    pub(crate) ident: &'static str,
+    pub(crate) kv: Option<&'a KV>,
+    pub(crate) state: &'a S,
+    pub(crate) stage: Stage,
+}
+
+// impl<'a, S: Clone> ObserverVec<Subject<'a, S>> {
+//     pub(crate) fn observe_initialisation(
+//         &'a self,
+//         ident: &'static str,
+//         state: &'a S,
+//         kv: Option<&'a KV>,
+//     ) {
+//         let subject = Subject {
+//             ident,
+//             kv,
+//             state,
+//             observers: self.clone(),
+//             stage: Stage::Initialisation,
+//         };
+//         todo!()
+//     }
+//
+//     pub(crate) fn finalisation_subject(
+//         &'a self,
+//         ident: &'static str,
+//         state: &'a S,
+//     kv: Option<&'a KV>,
+// ) -> Subject<'a, S> {
+//     Subject {
+//         ident,
+//         kv,
+//         state,
+//         observers: self.clone(),
+//         stage: Stage::Finalisation,
+//     }
+// }
+//
+// pub(crate) fn iteration_subject(
+//     &'a self,
+//     ident: &'static str,
+//     state: &'a S,
+//     kv: Option<&'a KV>,
+//     ) -> Subject<'a, S> {
+//         Subject {
+//             ident,
+//             kv,
+//             state,
+//             observers: self.clone(),
+//             stage: Stage::Iteration,
+//         }
+//     }
+// }
+
+#[derive(Clone, Default)]
+pub(crate) struct ObserverVec<S>(Vec<(Weak<dyn Observer<S>>, Frequency)>);
+
+impl<S> ObserverVec<S> {
+    pub(crate) fn as_slice<'a>(&'a self) -> ObserverSlice<'a, S> {
+        ObserverSlice(&self.0[..])
     }
 }
 
-impl<S> Watchers<S> {
-    pub(crate) fn add<W: Watch<S> + 'static>(mut self, watcher: W, frequency: Frequency) -> Self {
-        self.watchers
-            .push((Arc::new(Mutex::new(watcher)), frequency));
-        self
+pub(crate) struct ObserverSlice<'a, S>(&'a [(Weak<dyn Observer<S>>, Frequency)]);
+
+pub trait Observer<S> {
+    fn observe(&self, subject: &S);
+}
+
+pub trait Observable<S> {
+    type Observer;
+    fn update(&self, subject: &S);
+    fn attach(&mut self, observer: Self::Observer, frequency: Frequency);
+    fn detach(&mut self, observer: Self::Observer);
+}
+
+#[derive(Clone)]
+pub(crate) struct Subject<D> {
+    pub(crate) data: D,
+    pub(crate) observers: ObserverVec<D>,
+}
+
+impl<S> Observable<S> for ObserverVec<S> {
+    type Observer = Arc<dyn Observer<S>>;
+    fn update(&self, subject: &S) {
+        self.0
+            .iter()
+            .flat_map(|o| o.0.upgrade())
+            .for_each(|o| o.observe(subject));
+    }
+    fn attach(&mut self, observer: Self::Observer, frequency: Frequency) {
+        self.0.push((Arc::downgrade(&observer), frequency));
+    }
+    fn detach(&mut self, observer: Self::Observer) {
+        self.0.retain(|f| !f.0.ptr_eq(&Arc::downgrade(&observer)));
     }
 }
+
+// pub trait Observable<'a>
+// where
+//     Self: 'a,
+// {
+//     type Observer<'a>;
+//     fn update(&self);
+//     fn attach<'a>(&mut self, observer: Self::Observer<'a>, frequency: Frequency);
+//     fn detach<'a>(&mut self, observer: Self::Observer<'a>);
+// }
+//
+// impl<C, P, S, R> Observable for Runner<C, P, S, R> {
+//     type Observer<'a> = Arc<dyn Observer<Subject = Subject<'a, S>>>;
+//     fn update(&self) {
+//         self.observers().update()
+//     }
+//     fn attach<'a>(&mut self, observer: Self::Observer<'a>, frequency: Frequency) {
+//         self.observers_mut().attach(observer, frequency);
+//     }
+//     fn detach<'a>(&mut self, observer: Self::Observer<'a>) {
+//         self.observers_mut().retain(observer)
+//     }
+// }
+//
+// impl<S> Observable for ObserverVec<S> {
+//     type Observer<'a> = Arc<dyn Observer<Subject = Subject<'a, S>>>;
+//     fn update(&self) {
+//         self.0
+//             .iter()
+//             .flat_map(|o| o.upgrade())
+//             .for_each(|o| o.observe(self));
+//     }
+//     fn attach<'a>(&mut self, observer: Self::Observer<'a>, frequency: Frequency) {
+//         self.0.push((Arc::downgrade(&observer), frequency));
+//     }
+//     fn detach<'a>(&mut self, observer: Self::Observer<'a>) {
+//         self.0.retain(|f| !f.0.ptr_eq(&Arc::downgrade(&observer)));
+//     }
+// }
 
 #[derive(Debug, thiserror::Error)]
-pub enum WatchError {
+pub enum ObservationError {
     #[error("error in writer")]
     Writer(Box<dyn std::error::Error + 'static>), // We don't wrap the actual error, as we don't want to import the deps unless requested
 }
@@ -66,48 +194,5 @@ pub enum Frequency {
 impl Default for Frequency {
     fn default() -> Self {
         Self::Never
-    }
-}
-
-pub trait Watch<S> {
-    fn watch_initialisation(&mut self, _name: &str, _kv: &KV) -> Result<(), WatchError> {
-        Ok(())
-    }
-
-    fn watch_finalisation(&mut self, _name: &str, _kv: &KV) -> Result<(), WatchError> {
-        Ok(())
-    }
-
-    fn watch_iteration(&mut self, _state: &S, _kv: &KV) -> Result<(), WatchError> {
-        Ok(())
-    }
-}
-
-impl<S: State> Watch<S> for Watchers<S> {
-    fn watch_initialisation(&mut self, name: &str, kv: &KV) -> Result<(), WatchError> {
-        for watcher in &self.watchers {
-            watcher.0.lock().unwrap().watch_initialisation(name, kv)?;
-        }
-        Ok(())
-    }
-
-    fn watch_finalisation(&mut self, name: &str, kv: &KV) -> Result<(), WatchError> {
-        for watcher in &self.watchers {
-            watcher.0.lock().unwrap().watch_finalisation(name, kv)?;
-        }
-        Ok(())
-    }
-
-    fn watch_iteration(&mut self, state: &S, kv: &KV) -> Result<(), WatchError> {
-        for watcher in &mut self.watchers {
-            let iter = state.current_iteration();
-            let observer = &mut watcher.0.lock().unwrap();
-            match watcher.1 {
-                Frequency::Always => observer.watch_iteration(state, kv),
-                Frequency::Every(i) if iter % i == 0 => observer.watch_iteration(state, kv),
-                Frequency::Never | Frequency::Every(_) | Frequency::Last => Ok(()),
-            }?;
-        }
-        Ok(())
     }
 }

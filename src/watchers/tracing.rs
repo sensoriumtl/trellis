@@ -1,6 +1,6 @@
 use tracing::{debug, info, trace, Level, Value};
 
-use crate::watchers::Watch;
+use crate::watchers::{ObservationError, Observer, Stage, Subject};
 use crate::{kv::KV, state::State};
 
 /// A logger using the [`slog`](https://crates.io/crates/slog) crate as backend.
@@ -21,13 +21,24 @@ impl Tracer {
 
 struct TracingState<I>(I);
 
-impl<F, S> Watch<S> for Tracer
+impl<'a, S: State> Observer for Tracer {
+    type Subject = Subject<'a, S>;
+    fn observe(&self, subject: &Self::Subject) {
+        match subject.stage {
+            Stage::Initialisation => self.watch_initialisation(subject.name, subject.key_value),
+            Stage::Finalisation => self.watch_finalisation(subject.name, subject.key_value),
+            Stage::Iteration => self.watch_iteration(subject.state, subject.key_value),
+        }
+    }
+}
+
+impl<F, S> Tracer
 where
     S: State<Float = F>,
     F: Value,
 {
     /// Log basic information about the optimization after initialization.
-    fn watch_initialisation(&mut self, name: &str, _kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_initialisation(&mut self, name: &str, _kv: &KV) -> Result<(), ObservationError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),
@@ -39,7 +50,7 @@ where
         Ok(())
     }
 
-    fn watch_finalisation(&mut self, name: &str, _kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_finalisation(&mut self, name: &str, _kv: &KV) -> Result<(), ObservationError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),
@@ -51,7 +62,7 @@ where
         Ok(())
     }
 
-    fn watch_iteration(&mut self, state: &S, _kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_iteration(&mut self, state: &S, _kv: &KV) -> Result<(), ObservationError> {
         match self.level {
             Level::INFO => info!(
                 iteration = state.current_iteration(),

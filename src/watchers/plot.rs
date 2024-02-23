@@ -1,7 +1,7 @@
 use crate::kv::KV;
 use crate::plotters::{PlotConfig, PlottableLine, Plotter};
 use crate::state::{State, TrellisFloat};
-use crate::watchers::Watch;
+use crate::watchers::{ObservationError, Observer, Stage, Subject};
 use ndarray::{Array1, ArrayView1};
 use std::path::PathBuf;
 
@@ -52,16 +52,27 @@ where
     }
 }
 
+impl<'a, S: State, R> Observer for PlotGenerator<R> {
+    type Subject = Subject<'a, S>;
+    fn observe(&self, subject: &Self::Subject) {
+        match subject.stage {
+            Stage::Initialisation => self.observe_initialisation(subject.ident, subject.key_value),
+            Stage::Finalisation => self.observe_finalisation(subject.ident, subject.key_value),
+            Stage::Iteration => self.observe_iteration(subject.state, subject.key_value),
+        }
+    }
+}
+
 /// `WriteToFile` only implements `observer_iter` and not `observe_init` to avoid saving the
 /// initial parameter vector. It will only save if there is a parameter vector available in the
 /// state, otherwise it will skip saving silently.
-impl<I, R> Watch<I> for PlotGenerator<R>
+impl<S, R> PlotGenerator<R>
 where
-    I: State<Float = R>,
-    <I as State>::Param: Clone + Into<Array1<R>>,
+    S: State<Float = R>,
+    <S as State>::Param: Clone + Into<Array1<R>>,
     R: Clone + Default + PartialOrd + TrellisFloat + 'static,
 {
-    fn watch_iteration(&mut self, state: &I, _kv: &KV) -> Result<(), super::WatchError> {
+    fn watch_iteration(&mut self, state: &S, _kv: &KV) -> Result<(), ObservationError> {
         match self.target {
             Target::Param => {
                 if let Some(param) = state.get_param() {
