@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use hifitime::Duration;
-use runner::prelude::*;
 use slog::Level;
+use trellis::prelude::*;
 
 struct DummyCalculation {}
 
@@ -152,8 +152,8 @@ fn problems_run_successfully() {
 
     let runner = calculation
         .build_for(problem)
-        .with_watcher(SlogLogger::terminal(Level::Info), Frequency::Always)
-        .with_watcher(
+        .attach_observer(SlogLogger::terminal(Level::Info), Frequency::Always)
+        .attach_observer(
             FileWriter::new(
                 outdir.clone(),
                 iden.clone(),
@@ -162,7 +162,7 @@ fn problems_run_successfully() {
             ),
             Frequency::Always,
         )
-        .with_watcher(
+        .attach_observer(
             PlotGenerator::measure(outdir, iden, config),
             Frequency::Always,
         )

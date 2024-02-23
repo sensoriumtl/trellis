@@ -1,30 +1,33 @@
 use crate::runner::Runner;
-use std::{sync::Arc, sync::Weak};
+use std::{
+    sync::Weak,
+    sync::{Arc, Mutex},
+};
 
 use crate::kv::KV;
 
-// #[cfg(feature = "writing")]
-// mod file;
-//
-// #[cfg(feature = "writing")]
-// use crate::writers::WriterError;
-//
-// #[cfg(feature = "writing")]
-// pub use file::FileWriter;
-//
-// #[cfg(feature = "plotting")]
-// mod plot;
-// #[cfg(feature = "plotting")]
-// pub use plot::PlotGenerator;
-//
-// #[cfg(feature = "slog")]
-// mod slog;
-//
-// #[cfg(feature = "slog")]
-// pub use slog::SlogLogger;
-//
-// mod tracing;
-// pub use tracing::Tracer;
+#[cfg(feature = "writing")]
+mod file;
+
+#[cfg(feature = "writing")]
+use crate::writers::WriterError;
+
+#[cfg(feature = "writing")]
+pub use file::FileWriter;
+
+#[cfg(feature = "plotting")]
+mod plot;
+#[cfg(feature = "plotting")]
+pub use plot::PlotGenerator;
+
+#[cfg(feature = "slog")]
+mod slog;
+
+#[cfg(feature = "slog")]
+pub use slog::SlogLogger;
+
+mod tracing;
+pub use tracing::Tracer;
 
 pub enum Target {
     Param,
@@ -39,63 +42,19 @@ pub(crate) enum Stage {
 }
 
 #[derive(Clone)]
-pub(crate) struct ObservationData<'a, S> {
-    pub(crate) ident: &'static str,
-    pub(crate) kv: Option<&'a KV>,
-    pub(crate) state: &'a S,
-    pub(crate) stage: Stage,
+pub(crate) struct ObserverVec<S>(Vec<(Arc<Mutex<dyn Observer<S>>>, Frequency)>);
+
+impl<S> ObserverVec<S> {
+    pub(crate) fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
-// impl<'a, S: Clone> ObserverVec<Subject<'a, S>> {
-//     pub(crate) fn observe_initialisation(
-//         &'a self,
-//         ident: &'static str,
-//         state: &'a S,
-//         kv: Option<&'a KV>,
-//     ) {
-//         let subject = Subject {
-//             ident,
-//             kv,
-//             state,
-//             observers: self.clone(),
-//             stage: Stage::Initialisation,
-//         };
-//         todo!()
-//     }
-//
-//     pub(crate) fn finalisation_subject(
-//         &'a self,
-//         ident: &'static str,
-//         state: &'a S,
-//     kv: Option<&'a KV>,
-// ) -> Subject<'a, S> {
-//     Subject {
-//         ident,
-//         kv,
-//         state,
-//         observers: self.clone(),
-//         stage: Stage::Finalisation,
-//     }
-// }
-//
-// pub(crate) fn iteration_subject(
-//     &'a self,
-//     ident: &'static str,
-//     state: &'a S,
-//     kv: Option<&'a KV>,
-//     ) -> Subject<'a, S> {
-//         Subject {
-//             ident,
-//             kv,
-//             state,
-//             observers: self.clone(),
-//             stage: Stage::Iteration,
-//         }
-//     }
-// }
-
-#[derive(Clone, Default)]
-pub(crate) struct ObserverVec<S>(Vec<(Weak<dyn Observer<S>>, Frequency)>);
+impl<S> Default for ObserverVec<S> {
+    fn default() -> Self {
+        Self(vec![])
+    }
+}
 
 impl<S> ObserverVec<S> {
     pub(crate) fn as_slice<'a>(&'a self) -> ObserverSlice<'a, S> {
@@ -103,15 +62,15 @@ impl<S> ObserverVec<S> {
     }
 }
 
-pub(crate) struct ObserverSlice<'a, S>(&'a [(Weak<dyn Observer<S>>, Frequency)]);
+pub(crate) struct ObserverSlice<'a, S>(&'a [(Arc<Mutex<dyn Observer<S>>>, Frequency)]);
 
 pub trait Observer<S> {
-    fn observe(&self, subject: &S);
+    fn observe(&self, ident: &'static str, subject: &S, kv: Option<&KV>, stage: Stage);
 }
 
 pub trait Observable<S> {
     type Observer;
-    fn update(&self, subject: &S);
+    fn update(&self, ident: &'static str, subject: &S, kv: Option<&KV>, stage: Stage);
     fn attach(&mut self, observer: Self::Observer, frequency: Frequency);
     fn detach(&mut self, observer: Self::Observer);
 }
@@ -123,18 +82,18 @@ pub(crate) struct Subject<D> {
 }
 
 impl<S> Observable<S> for ObserverVec<S> {
-    type Observer = Arc<dyn Observer<S>>;
-    fn update(&self, subject: &S) {
+    type Observer = Arc<Mutex<dyn Observer<S>>>;
+    fn update(&self, ident: &'static str, subject: &S, kv: Option<&KV>, stage: Stage) {
         self.0
             .iter()
-            .flat_map(|o| o.0.upgrade())
-            .for_each(|o| o.observe(subject));
+            .map(|o| o.0.lock().unwrap())
+            .for_each(|o| o.observe(ident, subject, kv, stage));
     }
     fn attach(&mut self, observer: Self::Observer, frequency: Frequency) {
-        self.0.push((Arc::downgrade(&observer), frequency));
+        self.0.push((observer, frequency));
     }
     fn detach(&mut self, observer: Self::Observer) {
-        self.0.retain(|f| !f.0.ptr_eq(&Arc::downgrade(&observer)));
+        self.0.retain(|f| !Arc::ptr_eq(&f.0, &observer));
     }
 }
 

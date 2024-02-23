@@ -107,10 +107,8 @@ impl Writer {
         })
     }
 
-    #[must_use]
-    pub(crate) fn with_writeable_identifier(mut self, identifier: String) -> Self {
+    pub(crate) fn with_writeable_identifier(&mut self, identifier: String) {
         self.writeable_identifier = Some(identifier);
-        self
     }
 
     // Write data to `tmp_dir`

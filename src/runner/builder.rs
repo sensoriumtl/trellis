@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub trait GenerateBuilder<P, S>: Sized {
-    fn build_for(self, problem: P) -> Builder<Self, P, S, (), ()>;
+    fn build_for(self, problem: P) -> Builder<Self, P, S, ()>;
 }
 
 impl<C, P, S> GenerateBuilder<P, S> for C
@@ -13,7 +13,7 @@ where
     C: Calculation<P, S>,
     S: State,
 {
-    fn build_for(self, problem: P) -> Builder<Self, P, S, (), ()> {
+    fn build_for(self, problem: P) -> Builder<Self, P, S, ()> {
         Builder {
             problem,
             calculation: self,
@@ -26,16 +26,16 @@ where
     }
 }
 
-pub struct Builder<C, P, S, R, O> {
+pub struct Builder<C, P, S, R> {
     calculation: C,
     problem: P,
     state: S,
     time: bool,
     control_c: bool,
     controller: R,
-    observers: ObserverVec<O>,
+    observers: ObserverVec<S>,
 }
-impl<C, P, S, R, O> Builder<C, P, S, R, O> {
+impl<C, P, S, R> Builder<C, P, S, R> {
     #[must_use]
     pub fn control_c(mut self, control_c: bool) -> Self {
         self.control_c = control_c;
@@ -59,20 +59,22 @@ impl<C, P, S, R, O> Builder<C, P, S, R, O> {
     }
 
     #[must_use]
-    pub fn attach_observer<OBS: Observer<O> + 'static>(
+    pub fn attach_observer<OBS: Observer<S> + 'static>(
         mut self,
         observer: OBS,
         frequency: Frequency,
     ) -> Self {
-        self.observers
-            .attach(std::sync::Arc::new(observer), frequency);
+        self.observers.attach(
+            std::sync::Arc::new(std::sync::Mutex::new(observer)),
+            frequency,
+        );
         self
     }
 }
 
-impl<C, P, S, O> Builder<C, P, S, (), O> {
+impl<C, P, S> Builder<C, P, S, ()> {
     #[must_use]
-    pub fn with_controller<R>(self, controller: R) -> Builder<C, P, S, R, O> {
+    pub fn with_controller<R>(self, controller: R) -> Builder<C, P, S, R> {
         Builder {
             calculation: self.calculation,
             problem: self.problem,
@@ -84,7 +86,7 @@ impl<C, P, S, O> Builder<C, P, S, (), O> {
         }
     }
 
-    pub fn finalise(self) -> Result<Runner<C, P, S, (), O>, Error> {
+    pub fn finalise(self) -> Result<Runner<C, P, S, ()>, Error> {
         let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,
@@ -100,11 +102,11 @@ impl<C, P, S, O> Builder<C, P, S, (), O> {
     }
 }
 
-impl<C, P, S, R, O> Builder<C, P, S, R, O>
+impl<C, P, S, R> Builder<C, P, S, R>
 where
     R: Control + 'static,
 {
-    pub fn finalise(self) -> Result<Runner<C, P, S, R, O>, Error> {
+    pub fn finalise(self) -> Result<Runner<C, P, S, R>, Error> {
         let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,

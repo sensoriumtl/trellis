@@ -21,24 +21,20 @@ impl Tracer {
 
 struct TracingState<I>(I);
 
-impl<'a, S: State> Observer for Tracer {
-    type Subject = Subject<'a, S>;
-    fn observe(&self, subject: &Self::Subject) {
-        match subject.stage {
-            Stage::Initialisation => self.watch_initialisation(subject.name, subject.key_value),
-            Stage::Finalisation => self.watch_finalisation(subject.name, subject.key_value),
-            Stage::Iteration => self.watch_iteration(subject.state, subject.key_value),
+impl<F: tracing::Value, S: State<Float = F>> Observer<S> for Tracer {
+    fn observe(&self, ident: &'static str, subject: &S, key_value: Option<&KV>, stage: Stage) {
+        match stage {
+            Stage::Initialisation => self.observe_initialisation(ident, key_value),
+            Stage::Finalisation => self.observe_finalisation(ident, key_value),
+            Stage::Iteration => self.observe_iteration(subject, key_value),
         }
+        .unwrap()
     }
 }
 
-impl<F, S> Tracer
-where
-    S: State<Float = F>,
-    F: Value,
-{
+impl Tracer {
     /// Log basic information about the optimization after initialization.
-    fn watch_initialisation(&mut self, name: &str, _kv: &KV) -> Result<(), ObservationError> {
+    fn observe_initialisation(&self, name: &str, _kv: Option<&KV>) -> Result<(), ObservationError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),
@@ -50,7 +46,7 @@ where
         Ok(())
     }
 
-    fn watch_finalisation(&mut self, name: &str, _kv: &KV) -> Result<(), ObservationError> {
+    fn observe_finalisation(&self, name: &str, _kv: Option<&KV>) -> Result<(), ObservationError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),
@@ -62,7 +58,11 @@ where
         Ok(())
     }
 
-    fn watch_iteration(&mut self, state: &S, _kv: &KV) -> Result<(), ObservationError> {
+    fn observe_iteration<F, S>(&self, state: &S, _kv: Option<&KV>) -> Result<(), ObservationError>
+    where
+        S: State<Float = F>,
+        F: Value,
+    {
         match self.level {
             Level::INFO => info!(
                 iteration = state.current_iteration(),

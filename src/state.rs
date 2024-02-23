@@ -26,7 +26,7 @@ pub enum Reason {
     ExceededMaxIterations,
 }
 
-pub trait State: Clone {
+pub trait State {
     type Float: TrellisFloat;
     type Param;
     fn new() -> Self;

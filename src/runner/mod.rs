@@ -10,7 +10,7 @@ use tracing::instrument;
 
 use crate::{
     controller::{set_handler, Control},
-    watchers::{Observable, ObservationData, ObserverSlice, ObserverVec, Stage, Subject},
+    watchers::{Observable, ObserverSlice, ObserverVec, Stage, Subject},
     KV,
 };
 use crate::{Calculation, Output, Problem, Reason, State};
@@ -45,7 +45,7 @@ impl Killswitch {
 }
 
 /// General purpose calculation runner
-pub struct Runner<C, P, S, R, O> {
+pub struct Runner<C, P, S, R> {
     /// Calculation to be run
     calculation: C,
     /// The problem to solve
@@ -62,10 +62,10 @@ pub struct Runner<C, P, S, R, O> {
     controller: Option<R>,
     ///
     signals: Vec<Killswitch>,
-    observers: ObserverVec<O>,
+    observers: ObserverVec<S>,
 }
 
-impl<C, P, S, R, O> Runner<C, P, S, R, O> {
+impl<C, P, S, R> Runner<C, P, S, R> {
     fn now(&self) -> Result<Option<Epoch>, hifitime::errors::Errors> {
         if self.time {
             return Ok(Some(Epoch::now()?));
@@ -73,11 +73,11 @@ impl<C, P, S, R, O> Runner<C, P, S, R, O> {
         Ok(None)
     }
 
-    pub(crate) fn observers<'a>(&'a self) -> ObserverSlice<'a, O> {
+    pub(crate) fn observers<'a>(&'a self) -> ObserverSlice<'a, S> {
         self.observers.as_slice()
     }
 
-    pub(crate) fn observers_mut<'a>(&'a mut self) -> &'a mut ObserverVec<O> {
+    pub(crate) fn observers_mut<'a>(&'a mut self) -> &'a mut ObserverVec<S> {
         &mut self.observers
     }
 
@@ -108,7 +108,7 @@ impl<C, P, S, R, O> Runner<C, P, S, R, O> {
     }
 }
 
-impl<'a, C, P, S, R> Runner<C, P, S, R, Arc<S>>
+impl<'a, C, P, S, R> Runner<C, P, S, R>
 where
     C: Calculation<P, S>,
     S: State,
@@ -124,18 +124,14 @@ where
             .map(|signal| signal.caller.into())
     }
 
-    fn observe_initialisation<'b>(&self, state: &'b S, kv: Option<&'b KV>) {
-        todo!()
-    }
-
     #[instrument(name = "initialising runner", skip_all)]
     fn initialise(&mut self, state: S) -> Result<S, Error> {
         let (mut state, kv) = self.calculation.initialise(&mut self.problem, state)?;
-        let kv = kv.unwrap_or(KV::new());
 
         state.update();
 
-        self.observe_initialisation(&state, Some(&kv));
+        self.observers
+            .update(C::NAME, &state, kv.as_ref(), Stage::Initialisation);
 
         Ok(state)
     }
@@ -145,7 +141,6 @@ where
         let _maybe_iteration_start_time = self.now()?;
 
         let (mut state, kv) = self.calculation.next(&mut self.problem, state)?;
-        let kv = kv.unwrap_or(KV::new());
 
         if let Some(total_duration) = self.duration_since(maybe_start_time)? {
             state.record_time(total_duration);
@@ -153,8 +148,8 @@ where
         state.increment_iteration();
         state.update();
 
-        // let subject = self.observers.iteration_subject(C::NAME, &state, Some(&kv));
-        // subject.update();
+        self.observers
+            .update(C::NAME, &state, kv.as_ref(), Stage::Iteration);
 
         Ok(state)
     }
@@ -162,23 +157,10 @@ where
     #[instrument(name = "finalising runner", skip_all)]
     fn finalise(&mut self, state: S) -> Result<S, Error> {
         let (mut state, kv) = self.calculation.finalise(&mut self.problem, state)?;
-        let kv = kv.unwrap_or(KV::new());
-
         state.update();
 
-        // {
-        //     let subject: ObservationData<'b, S> =
-        //         self.observers
-        //             .finalisation_subject(C::NAME, &state, Some(&kv));
-        //     subject.update();
-        // }
-
-        // let data = ObservationData {
-        //     ident: C::NAME,
-        //     kv: Some(&kv),
-        //     state: &state,
-        //     stage: Stage::Finalisation,
-        // };
+        self.observers
+            .update(C::NAME, &state, kv.as_ref(), Stage::Finalisation);
 
         Ok(state)
     }
@@ -215,7 +197,7 @@ where
     }
 }
 
-impl<C, P, S, R, O> Runner<C, P, S, R, O>
+impl<C, P, S, R> Runner<C, P, S, R>
 where
     R: Control + 'static,
 {
@@ -236,7 +218,7 @@ pub trait InitialiseRunner {
     fn initialise_controllers(&mut self) -> Result<(), Error>;
 }
 
-impl<C, P, S, O> InitialiseRunner for Runner<C, P, S, (), O> {
+impl<C, P, S> InitialiseRunner for Runner<C, P, S, ()> {
     fn initialise_controllers(&mut self) -> Result<(), Error> {
         let received_kill_signal_from_control_c = Killswitch {
             caller: Caller::CtrlC,
@@ -247,7 +229,7 @@ impl<C, P, S, O> InitialiseRunner for Runner<C, P, S, (), O> {
     }
 }
 
-impl<C, P, S, R, O> InitialiseRunner for Runner<C, P, S, R, O>
+impl<C, P, S, R> InitialiseRunner for Runner<C, P, S, R>
 where
     R: Control + 'static,
 {

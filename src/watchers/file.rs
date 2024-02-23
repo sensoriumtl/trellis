@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
 };
 
 pub struct FileWriter {
-    writer: Writer,
+    writer: RefCell<Writer>,
     serializer: WriteToFileSerializer,
     target: Target,
 }
@@ -38,39 +39,44 @@ impl FileWriter {
         target: Target,
     ) -> Self {
         Self {
-            writer: Writer::new(dir, identifier).unwrap(),
+            writer: RefCell::new(Writer::new(dir, identifier).unwrap()),
             serializer,
             target,
         }
     }
 
     #[must_use]
-    pub(crate) fn with_writeable_identifier(mut self, identifier: String) -> Self {
-        self.writer = self.writer.with_writeable_identifier(identifier);
+    pub(crate) fn with_writeable_identifier(self, identifier: String) -> Self {
+        self.writer
+            .borrow_mut()
+            .with_writeable_identifier(identifier);
         self
     }
 }
 
-impl<'a, S: State> Observer for FileWriter {
-    type Subject = Subject<'a, S>;
-    fn observe(&self, subject: &Self::Subject) {
-        match subject.stage {
-            Stage::Initialisation => self.observe_initialisation(subject.ident, subject.key_value),
-            Stage::Finalisation => self.observe_finalisation(subject.ident, subject.key_value),
-            Stage::Iteration => self.observe_iteration(subject.state, subject.key_value),
+impl<S> Observer<S> for FileWriter
+where
+    S: State,
+    <S as State>::Param: Serialize,
+{
+    fn observe(&self, _ident: &'static str, subject: &S, key_value: Option<&KV>, stage: Stage) {
+        match stage {
+            Stage::Iteration => self.observe_iteration(subject, key_value),
+            _ => Ok(()),
         }
+        .unwrap()
     }
 }
 
 /// `WriteToFile` only implements `observer_iter` and not `observe_init` to avoid saving the
 /// initial parameter vector. It will only save if there is a parameter vector available in the
 /// state, otherwise it will skip saving silently.
-impl<S> FileWriter
-where
-    S: State,
-    <S as State>::Param: Serialize,
-{
-    fn watch_iteration(&mut self, state: &S, _kv: &KV) -> Result<(), ObservationError> {
+impl FileWriter {
+    fn observe_iteration<S>(&self, state: &S, _kv: Option<&KV>) -> Result<(), ObservationError>
+    where
+        S: State,
+        <S as State>::Param: Serialize,
+    {
         match self.target {
             Target::Param => {
                 if let Some(param) = state.get_param() {
@@ -79,7 +85,8 @@ where
                         identifier: format!("{iter}"),
                         data: param,
                     };
-                    self.writer
+                    let mut writer = self.writer.borrow_mut();
+                    writer
                         .write(self.serializer, &writeable)
                         .map_err(|e| ObservationError::Writer(Box::new(e)))?;
                 }
@@ -87,7 +94,8 @@ where
             Target::Measure => {
                 let iter = state.current_iteration();
                 let measure = state.measure();
-                self.writer
+                let mut writer = self.writer.borrow_mut();
+                writer
                     .write_pair(iter, measure)
                     .map_err(|e| ObservationError::Writer(Box::new(e)))?;
             }

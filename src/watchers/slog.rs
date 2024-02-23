@@ -93,24 +93,24 @@ impl slog::KV for KV {
     }
 }
 
-impl<'a, S: State> Observer for SlogLogger {
-    type Subject = Subject<'a, S>;
-    fn observe(&self, subject: &Self::Subject) {
-        match subject.stage {
-            Stage::Initialisation => self.observe_initialisation(subject.ident, subject.key_value),
-            Stage::Finalisation => self.observe_finalisation(subject.ident, subject.key_value),
-            Stage::Iteration => self.observe_iteration(subject.state, subject.key_value),
+impl<S: State> Observer<S> for SlogLogger {
+    fn observe(&self, ident: &'static str, subject: &S, key_value: Option<&KV>, stage: Stage) {
+        match stage {
+            Stage::Initialisation => self.observe_initialisation(ident, key_value),
+            Stage::Finalisation => self.observe_finalisation(ident, key_value),
+            Stage::Iteration => self.observe_iteration(subject, key_value),
         }
+        .unwrap()
     }
 }
 
-impl<S: State> SlogLogger {
+impl SlogLogger {
     /// Log basic information about the optimization after initialization.
-    fn observe_initialisation(&mut self, ident: &str, kv: &KV) -> Result<(), ObservationError> {
+    fn observe_initialisation(&self, ident: &str, kv: Option<&KV>) -> Result<(), ObservationError> {
         match self.level {
-            Level::Info => info!(self.logger, "starting: {}", ident; kv),
-            Level::Debug => debug!(self.logger, "starting: {}", ident; kv),
-            Level::Trace => trace!(self.logger, "starting: {}", ident; kv),
+            Level::Info => info!(self.logger, "starting: {}", ident),
+            Level::Debug => debug!(self.logger, "starting: {}", ident),
+            Level::Trace => trace!(self.logger, "starting: {}", ident),
             _ => unreachable!(
                 "constructor does not allow warn or error level events for non-error messages"
             ),
@@ -118,11 +118,11 @@ impl<S: State> SlogLogger {
         Ok(())
     }
 
-    fn observe_finalisation(&mut self, ident: &str, kv: &KV) -> Result<(), ObservationError> {
+    fn observe_finalisation(&self, ident: &str, kv: Option<&KV>) -> Result<(), ObservationError> {
         match self.level {
-            Level::Info => info!(self.logger, "finished: {}", ident; kv),
-            Level::Debug => debug!(self.logger, "finished: {}", ident; kv),
-            Level::Trace => trace!(self.logger, "finished: {}", ident; kv),
+            Level::Info => info!(self.logger, "finished: {}", ident),
+            Level::Debug => debug!(self.logger, "finished: {}", ident),
+            Level::Trace => trace!(self.logger, "finished: {}", ident),
             _ => unreachable!(
                 "constructor does not allow warn or error level events for non-error messages"
             ),
@@ -130,11 +130,15 @@ impl<S: State> SlogLogger {
         Ok(())
     }
 
-    fn observe_iteration(&mut self, state: &S, kv: &KV) -> Result<(), ObservationError> {
+    fn observe_iteration<S: State>(
+        &self,
+        state: &S,
+        kv: Option<&KV>,
+    ) -> Result<(), ObservationError> {
         match self.level {
-            Level::Info => info!(self.logger, ""; LogState(state), kv),
-            Level::Debug => debug!(self.logger, ""; LogState(state), kv),
-            Level::Trace => trace!(self.logger, ""; LogState(state), kv),
+            Level::Info => info!(self.logger, ""; LogState(state)),
+            Level::Debug => debug!(self.logger, ""; LogState(state)),
+            Level::Trace => trace!(self.logger, ""; LogState(state)),
             _ => unreachable!(
                 "constructor does not allow warn or error level events for non-error messages"
             ),
