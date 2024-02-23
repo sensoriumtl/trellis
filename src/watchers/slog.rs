@@ -1,4 +1,4 @@
-use crate::watchers::{ObservationError, Observer, Stage, Subject};
+use crate::watchers::{ObservationError, Observer, Stage};
 use crate::{kv::KV, state::State};
 use slog::{debug, info, o, trace, Drain, Key, Level, Logger, Record, Serializer};
 use slog_async::OverflowStrategy;
@@ -106,7 +106,7 @@ impl<S: State> Observer<S> for SlogLogger {
 
 impl SlogLogger {
     /// Log basic information about the optimization after initialization.
-    fn observe_initialisation(&self, ident: &str, kv: Option<&KV>) -> Result<(), ObservationError> {
+    fn observe_initialisation(&self, ident: &str, _kv: Option<&KV>) -> Result<(), ObservationError> {
         match self.level {
             Level::Info => info!(self.logger, "starting: {}", ident),
             Level::Debug => debug!(self.logger, "starting: {}", ident),
@@ -118,7 +118,7 @@ impl SlogLogger {
         Ok(())
     }
 
-    fn observe_finalisation(&self, ident: &str, kv: Option<&KV>) -> Result<(), ObservationError> {
+    fn observe_finalisation(&self, ident: &str, _kv: Option<&KV>) -> Result<(), ObservationError> {
         match self.level {
             Level::Info => info!(self.logger, "finished: {}", ident),
             Level::Debug => debug!(self.logger, "finished: {}", ident),
@@ -133,7 +133,7 @@ impl SlogLogger {
     fn observe_iteration<S: State>(
         &self,
         state: &S,
-        kv: Option<&KV>,
+        _kv: Option<&KV>,
     ) -> Result<(), ObservationError> {
         match self.level {
             Level::Info => info!(self.logger, ""; LogState(state)),

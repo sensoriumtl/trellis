@@ -1,6 +1,6 @@
 use tracing::{debug, info, trace, Level, Value};
 
-use crate::watchers::{ObservationError, Observer, Stage, Subject};
+use crate::watchers::{ObservationError, Observer, Stage};
 use crate::{kv::KV, state::State};
 
 /// A logger using the [`slog`](https://crates.io/crates/slog) crate as backend.

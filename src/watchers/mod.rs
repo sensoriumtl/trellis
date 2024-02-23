@@ -1,16 +1,9 @@
-use crate::runner::Runner;
-use std::{
-    sync::Weak,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use crate::kv::KV;
 
 #[cfg(feature = "writing")]
 mod file;
-
-#[cfg(feature = "writing")]
-use crate::writers::WriterError;
 
 #[cfg(feature = "writing")]
 pub use file::FileWriter;
@@ -35,13 +28,14 @@ pub enum Target {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) enum Stage {
+pub enum Stage {
     Initialisation,
     Finalisation,
     Iteration,
 }
 
 #[derive(Clone)]
+#[allow(clippy::type_complexity)]
 pub(crate) struct ObserverVec<S>(Vec<(Arc<Mutex<dyn Observer<S>>>, Frequency)>);
 
 impl<S> ObserverVec<S> {
@@ -57,11 +51,12 @@ impl<S> Default for ObserverVec<S> {
 }
 
 impl<S> ObserverVec<S> {
-    pub(crate) fn as_slice<'a>(&'a self) -> ObserverSlice<'a, S> {
+    pub(crate) fn as_slice(&self) -> ObserverSlice<'_, S> {
         ObserverSlice(&self.0[..])
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) struct ObserverSlice<'a, S>(&'a [(Arc<Mutex<dyn Observer<S>>>, Frequency)]);
 
 pub trait Observer<S> {

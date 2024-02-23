@@ -10,8 +10,7 @@ use tracing::instrument;
 
 use crate::{
     controller::{set_handler, Control},
-    watchers::{Observable, ObserverSlice, ObserverVec, Stage, Subject},
-    KV,
+    watchers::{Observable, ObserverSlice, ObserverVec, Stage},
 };
 use crate::{Calculation, Output, Problem, Reason, State};
 pub use builder::GenerateBuilder;
@@ -73,11 +72,11 @@ impl<C, P, S, R> Runner<C, P, S, R> {
         Ok(None)
     }
 
-    pub(crate) fn observers<'a>(&'a self) -> ObserverSlice<'a, S> {
+    pub(crate) fn observers(&self) -> ObserverSlice<'_, S> {
         self.observers.as_slice()
     }
 
-    pub(crate) fn observers_mut<'a>(&'a mut self) -> &'a mut ObserverVec<S> {
+    pub(crate) fn observers_mut(&mut self) -> &mut ObserverVec<S> {
         &mut self.observers
     }
 
@@ -108,7 +107,7 @@ impl<C, P, S, R> Runner<C, P, S, R> {
     }
 }
 
-impl<'a, C, P, S, R> Runner<C, P, S, R>
+impl<C, P, S, R> Runner<C, P, S, R>
 where
     C: Calculation<P, S>,
     S: State,

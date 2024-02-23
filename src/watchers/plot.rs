@@ -1,9 +1,8 @@
 use crate::kv::KV;
 use crate::plotters::{PlotConfig, PlottableLine, Plotter};
 use crate::state::{State, TrellisFloat};
-use crate::watchers::{ObservationError, Observer, Stage, Subject};
+use crate::watchers::{ObservationError, Observer, Stage};
 use ndarray::{Array1, ArrayView1};
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::path::PathBuf;
 
@@ -54,7 +53,7 @@ where
     }
 }
 
-impl<'a, S: State, R> Observer<S> for PlotGenerator<R>
+impl<S: State, R> Observer<S> for PlotGenerator<R>
 where
     S: State<Float = R>,
     <S as State>::Param: Clone + Into<Array1<R>>,

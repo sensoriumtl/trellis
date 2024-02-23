@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 
 use crate::{
-    watchers::{ObservationError, Observer, Stage, Subject, Target},
+    watchers::{ObservationError, Observer, Stage, Target},
     writers::{WriteToFileSerializer, Writeable, Writer},
     State, KV,
 };
