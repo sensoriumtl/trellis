@@ -215,11 +215,13 @@ pub trait InitialiseRunner {
 
 impl<C, P, S> InitialiseRunner for Runner<C, P, S, ()> {
     fn initialise_controllers(&mut self) -> Result<(), Error> {
-        let received_kill_signal_from_control_c = Killswitch {
-            caller: Caller::CtrlC,
-            inner: self.initialise_control_c()?,
-        };
-        self.signals = vec![received_kill_signal_from_control_c];
+        if self.control_c {
+            let received_kill_signal_from_control_c = Killswitch {
+                caller: Caller::CtrlC,
+                inner: self.initialise_control_c()?,
+            };
+            self.signals = vec![received_kill_signal_from_control_c];
+        }
         Ok(())
     }
 }
@@ -229,19 +231,19 @@ where
     R: Control + 'static,
 {
     fn initialise_controllers(&mut self) -> Result<(), Error> {
-        let received_kill_signal_from_control_c = Killswitch {
-            caller: Caller::CtrlC,
-            inner: self.initialise_control_c()?,
-        };
+        if self.control_c {
+            let received_kill_signal_from_control_c = Killswitch {
+                caller: Caller::CtrlC,
+                inner: self.initialise_control_c()?,
+            };
+            self.signals = vec![received_kill_signal_from_control_c];
+        }
 
         let received_kill_signal_from_controller = Killswitch {
             caller: Caller::Controller,
             inner: self.initialise_kill_signal_handler()?,
         };
-        self.signals = vec![
-            received_kill_signal_from_control_c,
-            received_kill_signal_from_controller,
-        ];
+        self.signals.push(received_kill_signal_from_controller);
         Ok(())
     }
 }
