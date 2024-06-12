@@ -94,15 +94,15 @@ impl<C, P, S, R> Runner<C, P, S, R> {
     fn initialise_control_c(&mut self) -> Result<Arc<AtomicBool>, Error> {
         let received_kill_signal_from_control_c = Arc::new(AtomicBool::new(false));
 
-        #[cfg(feature = "ctrlc")]
-        {
-            // Clone the state as the value needs to move into the closure
-            let state = received_kill_signal_from_control_c.clone();
-            ctrlc::set_handler(move || {
-                state.store(true, Ordering::SeqCst);
-            })?;
-        }
-
+        // #[cfg(feature = "ctrlc")]
+        // {
+        //     // Clone the state as the value needs to move into the closure
+        //     let state = received_kill_signal_from_control_c.clone();
+        //     ctrlc::set_handler(move || {
+        //         state.store(true, Ordering::SeqCst);
+        //     })?;
+        // }
+        //
         Ok(received_kill_signal_from_control_c)
     }
 }
