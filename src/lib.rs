@@ -2,7 +2,6 @@
 
 mod calculation;
 mod controller;
-mod kv;
 
 #[cfg(feature = "plotting")]
 mod plotters;
@@ -19,7 +18,6 @@ mod writers;
 
 pub use calculation::Calculation;
 pub(crate) use controller::Control;
-pub use kv::KV;
 
 #[cfg(feature = "plotting")]
 pub use plotters::PlotConfig;
@@ -38,9 +36,6 @@ pub use watchers::FileWriter;
 
 #[cfg(feature = "writing")]
 pub use writers::WriteToFileSerializer;
-
-#[cfg(feature = "slog")]
-pub use watchers::SlogLogger;
 
 pub use hifitime::Duration;
 

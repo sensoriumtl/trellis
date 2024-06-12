@@ -1,7 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use crate::kv::KV;
-
 #[cfg(feature = "writing")]
 mod file;
 
@@ -12,12 +10,6 @@ pub use file::FileWriter;
 mod plot;
 #[cfg(feature = "plotting")]
 pub use plot::PlotGenerator;
-
-#[cfg(feature = "slog")]
-mod slog;
-
-#[cfg(feature = "slog")]
-pub use slog::SlogLogger;
 
 mod tracing;
 pub use tracing::Tracer;
@@ -60,12 +52,12 @@ impl<S> ObserverVec<S> {
 pub(crate) struct ObserverSlice<'a, S>(&'a [(Arc<Mutex<dyn Observer<S>>>, Frequency)]);
 
 pub trait Observer<S> {
-    fn observe(&self, ident: &'static str, subject: &S, kv: Option<&KV>, stage: Stage);
+    fn observe(&self, ident: &'static str, subject: &S, stage: Stage);
 }
 
 pub trait Observable<S> {
     type Observer;
-    fn update(&self, ident: &'static str, subject: &S, kv: Option<&KV>, stage: Stage);
+    fn update(&self, ident: &'static str, subject: &S, stage: Stage);
     fn attach(&mut self, observer: Self::Observer, frequency: Frequency);
     fn detach(&mut self, observer: Self::Observer);
 }
@@ -78,11 +70,11 @@ pub(crate) struct Subject<D> {
 
 impl<S> Observable<S> for ObserverVec<S> {
     type Observer = Arc<Mutex<dyn Observer<S>>>;
-    fn update(&self, ident: &'static str, subject: &S, kv: Option<&KV>, stage: Stage) {
+    fn update(&self, ident: &'static str, subject: &S, stage: Stage) {
         self.0
             .iter()
             .map(|o| o.0.lock().unwrap())
-            .for_each(|o| o.observe(ident, subject, kv, stage));
+            .for_each(|o| o.observe(ident, subject, stage));
     }
     fn attach(&mut self, observer: Self::Observer, frequency: Frequency) {
         self.0.push((observer, frequency));
@@ -91,45 +83,6 @@ impl<S> Observable<S> for ObserverVec<S> {
         self.0.retain(|f| !Arc::ptr_eq(&f.0, &observer));
     }
 }
-
-// pub trait Observable<'a>
-// where
-//     Self: 'a,
-// {
-//     type Observer<'a>;
-//     fn update(&self);
-//     fn attach<'a>(&mut self, observer: Self::Observer<'a>, frequency: Frequency);
-//     fn detach<'a>(&mut self, observer: Self::Observer<'a>);
-// }
-//
-// impl<C, P, S, R> Observable for Runner<C, P, S, R> {
-//     type Observer<'a> = Arc<dyn Observer<Subject = Subject<'a, S>>>;
-//     fn update(&self) {
-//         self.observers().update()
-//     }
-//     fn attach<'a>(&mut self, observer: Self::Observer<'a>, frequency: Frequency) {
-//         self.observers_mut().attach(observer, frequency);
-//     }
-//     fn detach<'a>(&mut self, observer: Self::Observer<'a>) {
-//         self.observers_mut().retain(observer)
-//     }
-// }
-//
-// impl<S> Observable for ObserverVec<S> {
-//     type Observer<'a> = Arc<dyn Observer<Subject = Subject<'a, S>>>;
-//     fn update(&self) {
-//         self.0
-//             .iter()
-//             .flat_map(|o| o.upgrade())
-//             .for_each(|o| o.observe(self));
-//     }
-//     fn attach<'a>(&mut self, observer: Self::Observer<'a>, frequency: Frequency) {
-//         self.0.push((Arc::downgrade(&observer), frequency));
-//     }
-//     fn detach<'a>(&mut self, observer: Self::Observer<'a>) {
-//         self.0.retain(|f| !f.0.ptr_eq(&Arc::downgrade(&observer)));
-//     }
-// }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ObservationError {
@@ -142,7 +95,7 @@ pub enum Frequency {
     Never,
     Always,
     Every(usize),
-    Last,
+    OnExit,
 }
 
 impl Default for Frequency {

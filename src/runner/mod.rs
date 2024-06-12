@@ -12,7 +12,7 @@ use crate::{
     controller::{set_handler, Control},
     watchers::{Observable, ObserverSlice, ObserverVec, Stage},
 };
-use crate::{Calculation, Output, Problem, Reason, State};
+use crate::{Calculation, Problem, Reason, State};
 pub use builder::GenerateBuilder;
 
 pub type Error = Box<dyn std::error::Error>;
@@ -125,12 +125,12 @@ where
 
     #[instrument(name = "initialising runner", skip_all)]
     fn initialise(&mut self, state: S) -> Result<S, Error> {
-        let (mut state, kv) = self.calculation.initialise(&mut self.problem, state)?;
+        let mut state = self.calculation.initialise(&mut self.problem, state)?;
 
-        state.update();
+        state = state.update();
 
         self.observers
-            .update(C::NAME, &state, kv.as_ref(), Stage::Initialisation);
+            .update(C::NAME, &state, Stage::Initialisation);
 
         Ok(state)
     }
@@ -139,33 +139,29 @@ where
     fn once(&mut self, state: S, maybe_start_time: Option<&Epoch>) -> Result<S, Error> {
         let _maybe_iteration_start_time = self.now()?;
 
-        let (mut state, kv) = self.calculation.next(&mut self.problem, state)?;
+        let mut state = self.calculation.next(&mut self.problem, state)?;
 
         if let Some(total_duration) = self.duration_since(maybe_start_time)? {
             state.record_time(total_duration);
         }
         state.increment_iteration();
-        state.update();
+        state = state.update();
 
-        self.observers
-            .update(C::NAME, &state, kv.as_ref(), Stage::Iteration);
+        self.observers.update(C::NAME, &state, Stage::Iteration);
 
         Ok(state)
     }
 
     #[instrument(name = "finalising runner", skip_all)]
-    fn finalise(&mut self, state: S) -> Result<S, Error> {
-        let (mut state, kv) = self.calculation.finalise(&mut self.problem, state)?;
-        state.update();
+    fn finalise(&mut self, state: S) -> Result<C::Output, Error> {
+        let result = self.calculation.finalise(&mut self.problem, state)?;
 
-        self.observers
-            .update(C::NAME, &state, kv.as_ref(), Stage::Finalisation);
-
-        Ok(state)
+        Ok(result)
     }
 
     /// Execute the runner
-    pub fn run(mut self) -> Result<Output<C, P, S>, Error> {
+    #[instrument(name = "running trellis computation", skip_all)]
+    pub fn run(mut self) -> Result<C::Output, Error> {
         // Todo: Load checkpoints?
         let start_time = self.now()?;
 
@@ -190,9 +186,9 @@ where
             state = self.once(state, start_time.as_ref())?;
         }
 
-        state = self.finalise(state)?;
+        let result = self.finalise(state)?;
 
-        Ok(Output::new(self.problem, self.calculation, state))
+        Ok(result)
     }
 }
 

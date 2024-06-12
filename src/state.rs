@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub trait TrellisFloat: Display + Serialize {}
 
+impl TrellisFloat for f32 {}
 impl TrellisFloat for f64 {}
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -23,6 +24,7 @@ impl Default for Status {
 pub enum Reason {
     ControlC,
     Controller,
+    Converged,
     ExceededMaxIterations,
 }
 
@@ -33,7 +35,7 @@ pub trait State {
     fn record_time(&mut self, duration: Duration);
     fn increment_iteration(&mut self);
     fn current_iteration(&self) -> usize;
-    fn update(&mut self);
+    fn update(self) -> Self;
     fn is_initialised(&self) -> bool;
     fn is_terminated(&self) -> bool;
     fn terminate_due_to(self, reason: Reason) -> Self;

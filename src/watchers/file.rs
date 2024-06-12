@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use crate::{
     watchers::{ObservationError, Observer, Stage, Target},
     writers::{WriteToFileSerializer, Writeable, Writer},
-    State, KV,
+    State,
 };
 
 pub struct FileWriter {
@@ -59,9 +59,9 @@ where
     S: State,
     <S as State>::Param: Serialize,
 {
-    fn observe(&self, _ident: &'static str, subject: &S, key_value: Option<&KV>, stage: Stage) {
+    fn observe(&self, _ident: &'static str, subject: &S, stage: Stage) {
         match stage {
-            Stage::Iteration => self.observe_iteration(subject, key_value),
+            Stage::Iteration => self.observe_iteration(subject),
             _ => Ok(()),
         }
         .unwrap()
@@ -72,7 +72,7 @@ where
 /// initial parameter vector. It will only save if there is a parameter vector available in the
 /// state, otherwise it will skip saving silently.
 impl FileWriter {
-    fn observe_iteration<S>(&self, state: &S, _kv: Option<&KV>) -> Result<(), ObservationError>
+    fn observe_iteration<S>(&self, state: &S) -> Result<(), ObservationError>
     where
         S: State,
         <S as State>::Param: Serialize,

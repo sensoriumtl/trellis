@@ -1,7 +1,7 @@
 use tracing::{debug, info, trace, Level, Value};
 
+use crate::state::State;
 use crate::watchers::{ObservationError, Observer, Stage};
-use crate::{kv::KV, state::State};
 
 /// A logger using the [`slog`](https://crates.io/crates/slog) crate as backend.
 #[derive(Clone)]
@@ -22,11 +22,11 @@ impl Tracer {
 struct TracingState<I>(I);
 
 impl<F: tracing::Value, S: State<Float = F>> Observer<S> for Tracer {
-    fn observe(&self, ident: &'static str, subject: &S, key_value: Option<&KV>, stage: Stage) {
+    fn observe(&self, ident: &'static str, subject: &S, stage: Stage) {
         match stage {
-            Stage::Initialisation => self.observe_initialisation(ident, key_value),
-            Stage::Finalisation => self.observe_finalisation(ident, key_value),
-            Stage::Iteration => self.observe_iteration(subject, key_value),
+            Stage::Initialisation => self.observe_initialisation(ident),
+            Stage::Finalisation => self.observe_finalisation(ident),
+            Stage::Iteration => self.observe_iteration(subject),
         }
         .unwrap()
     }
@@ -34,7 +34,7 @@ impl<F: tracing::Value, S: State<Float = F>> Observer<S> for Tracer {
 
 impl Tracer {
     /// Log basic information about the optimization after initialization.
-    fn observe_initialisation(&self, name: &str, _kv: Option<&KV>) -> Result<(), ObservationError> {
+    fn observe_initialisation(&self, name: &str) -> Result<(), ObservationError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),
@@ -46,7 +46,7 @@ impl Tracer {
         Ok(())
     }
 
-    fn observe_finalisation(&self, name: &str, _kv: Option<&KV>) -> Result<(), ObservationError> {
+    fn observe_finalisation(&self, name: &str) -> Result<(), ObservationError> {
         match self.level {
             Level::INFO => info!("initialising: {}", name),
             Level::DEBUG => debug!("initialising: {}", name),
@@ -58,7 +58,7 @@ impl Tracer {
         Ok(())
     }
 
-    fn observe_iteration<F, S>(&self, state: &S, _kv: Option<&KV>) -> Result<(), ObservationError>
+    fn observe_iteration<F, S>(&self, state: &S) -> Result<(), ObservationError>
     where
         S: State<Float = F>,
         F: Value,

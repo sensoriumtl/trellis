@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use hifitime::Duration;
-use slog::Level;
 use trellis::prelude::*;
 
 struct DummyCalculation {}
@@ -99,21 +98,22 @@ impl std::error::Error for DummyError {}
 
 impl Calculation<DummyProblem, DummyState> for DummyCalculation {
     type Error = DummyError;
+    type Output = bool;
     const NAME: &'static str = "My dumb calculation";
     fn initialise(
         &mut self,
         _problem: &mut Problem<DummyProblem>,
         state: DummyState,
-    ) -> Result<(DummyState, Option<KV>), Self::Error> {
+    ) -> Result<DummyState, Self::Error> {
         println!("initialising");
-        Ok((state, None))
+        Ok(state)
     }
 
     fn next(
         &mut self,
         _problem: &mut Problem<DummyProblem>,
         mut state: DummyState,
-    ) -> Result<(DummyState, Option<KV>), Self::Error> {
+    ) -> Result<DummyState, Self::Error> {
         std::thread::sleep(std::time::Duration::from_millis(100));
 
         if state.iteration >= 100 {
@@ -122,15 +122,15 @@ impl Calculation<DummyProblem, DummyState> for DummyCalculation {
 
         state.cost = (-((state.iteration as f64) / 100.0)).exp();
 
-        Ok((state, None))
+        Ok(state)
     }
 
     fn finalise(
         &mut self,
         _problem: &mut Problem<DummyProblem>,
-        state: DummyState,
-    ) -> Result<(DummyState, Option<KV>), Self::Error> {
-        Ok((state, None))
+        _state: DummyState,
+    ) -> Result<Self::Output, Self::Error> {
+        Ok(true)
     }
 }
 
@@ -152,7 +152,6 @@ fn problems_run_successfully() {
 
     let runner = calculation
         .build_for(problem)
-        .attach_observer(SlogLogger::terminal(Level::Info), Frequency::Always)
         .attach_observer(
             FileWriter::new(
                 outdir.clone(),
@@ -169,5 +168,6 @@ fn problems_run_successfully() {
         .finalise()
         .expect("failed to build problem");
 
-    let _result = runner.run();
+    let result = runner.run();
+    dbg!(&result);
 }

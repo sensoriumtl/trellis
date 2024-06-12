@@ -1,5 +1,8 @@
+//! Controllers are external processes which can kill the main loop.
+
 use std::thread;
 
+/// A controller has to implement the `Control` trait
 pub trait Control: Send {
     type Value;
     type Error;

@@ -1,4 +1,5 @@
 pub use crate::Calculation;
+
 #[cfg(feature = "writing")]
 pub use crate::FileWriter;
 
@@ -20,8 +21,3 @@ pub use crate::Tracer;
 
 #[cfg(feature = "writing")]
 pub use crate::WriteToFileSerializer;
-
-pub use crate::KV;
-
-#[cfg(feature = "slog")]
-pub use crate::SlogLogger;

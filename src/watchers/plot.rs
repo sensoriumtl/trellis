@@ -1,4 +1,3 @@
-use crate::kv::KV;
 use crate::plotters::{PlotConfig, PlottableLine, Plotter};
 use crate::state::{State, TrellisFloat};
 use crate::watchers::{ObservationError, Observer, Stage};
@@ -59,9 +58,9 @@ where
     <S as State>::Param: Clone + Into<Array1<R>>,
     R: Clone + Default + PartialOrd + TrellisFloat + 'static,
 {
-    fn observe(&self, _ident: &'static str, subject: &S, key_value: Option<&KV>, stage: Stage) {
+    fn observe(&self, _ident: &'static str, subject: &S, stage: Stage) {
         match stage {
-            Stage::Iteration => self.observe_iteration(subject, key_value),
+            Stage::Iteration => self.observe_iteration(subject),
             _ => Ok(()),
         }
         .unwrap()
@@ -75,7 +74,7 @@ impl<R> PlotGenerator<R>
 where
     R: Clone + Default + PartialOrd + TrellisFloat + 'static,
 {
-    fn observe_iteration<S>(&self, state: &S, _kv: Option<&KV>) -> Result<(), ObservationError>
+    fn observe_iteration<S>(&self, state: &S) -> Result<(), ObservationError>
     where
         S: State<Float = R>,
         <S as State>::Param: Clone + Into<Array1<R>>,
