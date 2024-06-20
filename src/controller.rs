@@ -25,3 +25,12 @@ where
         })?;
     Ok(())
 }
+
+#[cfg(tokio)]
+impl<M> Control for tokio::sync::oneshot::Receiver<M> {
+    type Value = M;
+    type Error = tokio::sync::oneshot::error::RecvError;
+    fn blocking_recv_kill_signal(&self) -> Result<Self::Value, Self::Error> {
+        self.clone().blocking_recv()
+    }
+}
