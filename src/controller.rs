@@ -6,7 +6,7 @@ use std::thread;
 pub trait Control: Send {
     type Value;
     type Error;
-    fn blocking_recv_kill_signal(&self) -> Result<Self::Value, Self::Error>;
+    fn blocking_recv_kill_signal(self) -> Result<Self::Value, Self::Error>;
 }
 
 pub(crate) fn set_handler<R, F>(
@@ -26,11 +26,14 @@ where
     Ok(())
 }
 
-#[cfg(tokio)]
-impl<M> Control for tokio::sync::oneshot::Receiver<M> {
+#[cfg(feature = "tokio")]
+impl<M> Control for tokio::sync::oneshot::Receiver<M>
+where
+    M: Send,
+{
     type Value = M;
     type Error = tokio::sync::oneshot::error::RecvError;
-    fn blocking_recv_kill_signal(&self) -> Result<Self::Value, Self::Error> {
-        self.clone().blocking_recv()
+    fn blocking_recv_kill_signal(self) -> Result<Self::Value, Self::Error> {
+        self.blocking_recv()
     }
 }
