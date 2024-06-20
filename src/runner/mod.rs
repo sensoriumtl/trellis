@@ -124,7 +124,7 @@ where
     }
 
     #[instrument(name = "initialising runner", skip_all)]
-    fn initialise(&mut self, state: S) -> Result<S, Error> {
+    fn initialise(&mut self, state: S) -> Result<S, C::Error> {
         let mut state = self.calculation.initialise(&mut self.problem, state)?;
 
         state = state.update();
@@ -136,12 +136,12 @@ where
     }
 
     #[instrument(name = "performing iteration", skip_all)]
-    fn once(&mut self, state: S, maybe_start_time: Option<&Epoch>) -> Result<S, Error> {
-        let _maybe_iteration_start_time = self.now()?;
+    fn once(&mut self, state: S, maybe_start_time: Option<&Epoch>) -> Result<S, C::Error> {
+        let _maybe_iteration_start_time = self.now().unwrap();
 
         let mut state = self.calculation.next(&mut self.problem, state)?;
 
-        if let Some(total_duration) = self.duration_since(maybe_start_time)? {
+        if let Some(total_duration) = self.duration_since(maybe_start_time).unwrap() {
             state.record_time(total_duration);
         }
         state.increment_iteration();
@@ -153,7 +153,7 @@ where
     }
 
     #[instrument(name = "finalising runner", skip_all)]
-    fn finalise(&mut self, state: S) -> Result<C::Output, Error> {
+    fn finalise(&mut self, state: S) -> Result<C::Output, C::Error> {
         let result = self.calculation.finalise(&mut self.problem, state)?;
 
         Ok(result)
@@ -161,9 +161,9 @@ where
 
     /// Execute the runner
     #[instrument(name = "running trellis computation", skip_all)]
-    pub fn run(mut self) -> Result<C::Output, Error> {
+    pub fn run(mut self) -> Result<C::Output, C::Error> {
         // Todo: Load checkpoints?
-        let start_time = self.now()?;
+        let start_time = self.now().unwrap();
 
         let mut state = self.state.take().unwrap();
 
