@@ -26,14 +26,23 @@ where
     Ok(())
 }
 
+// #[cfg(feature = "tokio")]
+// impl<M> Control for tokio::sync::oneshot::Receiver<M>
+// where
+//     M: Send,
+// {
+//     type Value = M;
+//     type Error = tokio::sync::oneshot::error::RecvError;
+//     fn blocking_recv_kill_signal(self) -> Result<Self::Value, Self::Error> {
+//         self.blocking_recv()
+//     }
+// }
+//
 #[cfg(feature = "tokio")]
-impl<M> Control for tokio::sync::oneshot::Receiver<M>
-where
-    M: Send,
-{
-    type Value = M;
-    type Error = tokio::sync::oneshot::error::RecvError;
+impl Control for tokio_util::sync::CancellationToken {
+    type Value = tokio_util::sync::WaitForCancellationFutureOwned;
+    type Error = ();
     fn blocking_recv_kill_signal(self) -> Result<Self::Value, Self::Error> {
-        self.blocking_recv()
+        Ok(self.cancelled_owned())
     }
 }

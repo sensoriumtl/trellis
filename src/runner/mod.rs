@@ -44,7 +44,7 @@ impl Killswitch {
 }
 
 /// General purpose calculation runner
-pub struct Runner<C, P, S, R> {
+pub struct Runner<C, P, S, T> {
     /// Calculation to be run
     calculation: C,
     /// The problem to solve
@@ -58,13 +58,13 @@ pub struct Runner<C, P, S, R> {
     /// Receiver
     ///
     /// When a signal is received on this channel the calculation is terminated.
-    controller: Option<R>,
+    cancellation_token: Option<T>,
     ///
     signals: Vec<Killswitch>,
     observers: ObserverVec<S>,
 }
 
-impl<C, P, S, R> Runner<C, P, S, R> {
+impl<C, P, S, T> Runner<C, P, S, T> {
     fn now(&self) -> Result<Option<Epoch>, hifitime::errors::Errors> {
         if self.time {
             return Ok(Some(Epoch::now()?));
@@ -201,7 +201,7 @@ where
 
         // Clone the state as the value needs to move into the closure
         let state = received_kill_signal_from_controller.clone();
-        set_handler(self.controller.take().unwrap(), move || {
+        set_handler(self.cancellation_token.take().unwrap(), move || {
             state.store(true, Ordering::SeqCst);
         })?;
 

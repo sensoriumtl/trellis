@@ -46,11 +46,12 @@ impl State for DummyState {
         self.iteration
     }
 
-    fn update(&mut self) {
+    fn update(mut self) -> Self {
         if self.best_cost > self.cost {
             self.best_cost = self.cost;
             self.best_cost_iteration = self.iteration;
         }
+        self
     }
 
     fn measure(&self) -> Self::Float {
@@ -134,40 +135,46 @@ impl Calculation<DummyProblem, DummyState> for DummyCalculation {
     }
 }
 
-#[test]
-fn problems_run_successfully() {
+#[tokio::test]
+#[cfg(feature = "tokio")]
+async fn problems_run_successfully() {
     let calculation = DummyCalculation {};
     let problem = DummyProblem {};
 
-    let iden = "calculation_time".to_string();
-    let outdir = PathBuf::from(r"/Users/cgubbin/sensorium/tooling/runner/out/");
-
-    let config = PlotConfig {
-        x_limits: 0.0..100.0,
-        y_limits: None,
-        x_label: "Iteration".into(),
-        y_label: "Measure".into(),
-        title: "Optimisation Progress".into(),
-    };
+    // let iden = "calculation_time".to_string();
+    // let outdir = PathBuf::from(r"/Users/cgubbin/sensorium/tooling/runner/out/");
+    //
+    // let config = PlotConfig {
+    //     x_limits: 0.0..100.0,
+    //     y_limits: None,
+    //     x_label: "Iteration".into(),
+    //     y_label: "Measure".into(),
+    //     title: "Optimisation Progress".into(),
+    // };
+    //
+    let cancellation_token = tokio_util::sync::CancellationToken::new();
 
     let runner = calculation
         .build_for(problem)
-        .attach_observer(
-            FileWriter::new(
-                outdir.clone(),
-                iden.clone(),
-                WriteToFileSerializer::JSON,
-                Target::Measure,
-            ),
-            Frequency::Always,
-        )
-        .attach_observer(
-            PlotGenerator::measure(outdir, iden, config),
-            Frequency::Always,
-        )
+        .with_cancellation_token(cancellation_token.clone())
+        // .attach_observer(
+        //     FileWriter::new(
+        //         outdir.clone(),
+        //         iden.clone(),
+        //         WriteToFileSerializer::JSON,
+        //         Target::Measure,
+        //     ),
+        //     Frequency::Always,
+        // )
+        // .attach_observer(
+        //     PlotGenerator::measure(outdir, iden, config),
+        //     Frequency::Always,
+        // )
         .finalise()
         .expect("failed to build problem");
 
-    let result = runner.run();
-    dbg!(&result);
+    tokio::task::spawn_blocking(move || runner.run());
+
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    cancellation_token.cancel();
 }

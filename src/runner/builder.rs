@@ -20,19 +20,19 @@ where
             state: S::new(),
             time: true,
             control_c: false,
-            controller: (),
+            cancellation_token: (),
             observers: ObserverVec::default(),
         }
     }
 }
 
-pub struct Builder<C, P, S, R> {
+pub struct Builder<C, P, S, T> {
     calculation: C,
     problem: P,
     state: S,
     time: bool,
     control_c: bool,
-    controller: R,
+    cancellation_token: T,
     observers: ObserverVec<S>,
 }
 impl<C, P, S, R> Builder<C, P, S, R> {
@@ -74,14 +74,14 @@ impl<C, P, S, R> Builder<C, P, S, R> {
 
 impl<C, P, S> Builder<C, P, S, ()> {
     #[must_use]
-    pub fn with_controller<R>(self, controller: R) -> Builder<C, P, S, R> {
+    pub fn with_cancellation_token<T>(self, cancellation_token: T) -> Builder<C, P, S, T> {
         Builder {
             calculation: self.calculation,
             problem: self.problem,
             state: self.state,
             time: self.time,
             control_c: self.control_c,
-            controller,
+            cancellation_token,
             observers: self.observers,
         }
     }
@@ -93,7 +93,7 @@ impl<C, P, S> Builder<C, P, S, ()> {
             state: Some(self.state),
             time: self.time,
             control_c: self.control_c,
-            controller: None,
+            cancellation_token: None,
             signals: vec![],
             observers: self.observers,
         };
@@ -102,18 +102,18 @@ impl<C, P, S> Builder<C, P, S, ()> {
     }
 }
 
-impl<C, P, S, R> Builder<C, P, S, R>
+impl<C, P, S, T> Builder<C, P, S, T>
 where
-    R: Control + 'static,
+    T: Control + 'static,
 {
-    pub fn finalise(self) -> Result<Runner<C, P, S, R>, Error> {
+    pub fn finalise(self) -> Result<Runner<C, P, S, T>, Error> {
         let mut runner = Runner {
             problem: Problem::new(self.problem),
             calculation: self.calculation,
             state: Some(self.state),
             time: self.time,
             control_c: self.control_c,
-            controller: Some(self.controller),
+            cancellation_token: Some(self.cancellation_token),
             signals: vec![],
             observers: self.observers,
         };
