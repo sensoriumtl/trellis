@@ -12,12 +12,14 @@ pub use crate::GenerateBuilder;
 // #[cfg(feature = "plotting")]
 // pub use crate::PlotGenerator;
 
+pub use crate::Cause;
+pub use crate::CoreState;
 pub use crate::Problem;
-pub use crate::Reason;
 pub use crate::State;
 pub use crate::Status;
 pub use crate::Target;
-pub use crate::Tracer;
+pub use crate::UserState;
+// pub use crate::Tracer;
 
 // #[cfg(feature = "writing")]
 // pub use crate::WriteToFileSerializer;

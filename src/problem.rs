@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Problem<P>(P);
 
 impl<P> Problem<P> {

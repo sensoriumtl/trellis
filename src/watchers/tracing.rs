@@ -1,7 +1,7 @@
 use tracing::{debug, info, trace, Level, Value};
 
-use crate::state::State;
 use crate::watchers::{ObservationError, Observer, Stage};
+use crate::{CoreState, State, UserState};
 
 /// A logger using the [`slog`](https://crates.io/crates/slog) crate as backend.
 #[derive(Clone)]
@@ -21,7 +21,7 @@ impl Tracer {
 
 struct TracingState<I>(I);
 
-impl<F: tracing::Value, S: State<Float = F>> Observer<S> for Tracer {
+impl<F: tracing::Value, S: UserState<Float = F>> Observer<State<S>> for Tracer {
     fn observe(&self, ident: &'static str, subject: &S, stage: Stage) {
         match stage {
             Stage::Initialisation => self.observe_initialisation(ident),
@@ -60,7 +60,7 @@ impl Tracer {
 
     fn observe_iteration<F, S>(&self, state: &S) -> Result<(), ObservationError>
     where
-        S: State<Float = F>,
+        S: CoreState<Float = F>,
         F: Value,
     {
         match self.level {

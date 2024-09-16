@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 // #[cfg(feature = "plotting")]
 // pub use plot::PlotGenerator;
 //
-mod tracing;
-pub use tracing::Tracer;
+// mod tracing;
+// pub use tracing::Tracer;
 
 pub enum Target {
     Param,

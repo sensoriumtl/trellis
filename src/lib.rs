@@ -10,10 +10,9 @@ pub mod prelude;
 mod problem;
 mod result;
 mod runner;
-mod state;
 mod watchers;
 
-mod staten;
+mod state;
 
 // #[cfg(feature = "writing")]
 // mod writers;
@@ -29,8 +28,8 @@ pub(crate) use controller::Control;
 pub use problem::Problem;
 pub use result::Output;
 pub use runner::GenerateBuilder;
-pub use state::{Reason, State, Status};
-pub use watchers::Tracer;
+pub use state::{Cause, CoreState, ErrorEstimate, State, Status, UserState};
+// pub use watchers::Tracer;
 pub use watchers::{Frequency, Target};
 
 // #[cfg(feature = "writing")]

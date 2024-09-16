@@ -1,87 +1,46 @@
+use core::f64;
 use std::path::PathBuf;
 
 use hifitime::Duration;
-use trellis::prelude::*;
+use trellis::{prelude::*, ErrorEstimate};
 
 struct DummyCalculation {}
 
 struct DummyProblem {}
 
 struct DummyState {
-    iteration: usize,
-    best_cost_iteration: usize,
-    is_initialised: bool,
-    termination_status: Status,
-    time_elapsed: Option<Duration>,
-    cost: f64,
-    best_cost: f64,
     param: Option<Vec<f64>>,
+    cost: f64,
+    is_initialised: bool,
+    iter: usize,
 }
 
-impl State for DummyState {
+impl UserState for DummyState {
     type Float = f64;
     type Param = Vec<f64>;
     fn new() -> Self {
         Self {
-            cost: std::f64::MAX,
-            best_cost: std::f64::MAX,
             param: None,
-            time_elapsed: None,
-            iteration: 0,
-            best_cost_iteration: 0,
-            is_initialised: false,
-            termination_status: Status::NotTerminated,
+            cost: f64::MAX,
+            is_initialised: true,
+            iter: 0,
         }
-    }
-
-    fn record_time(&mut self, duration: Duration) {
-        self.time_elapsed = Some(duration);
-    }
-
-    fn increment_iteration(&mut self) {
-        self.iteration += 1;
-    }
-
-    fn current_iteration(&self) -> usize {
-        self.iteration
-    }
-
-    fn update(mut self) -> Self {
-        if self.best_cost > self.cost {
-            self.best_cost = self.cost;
-            self.best_cost_iteration = self.iteration;
-        }
-        self
-    }
-
-    fn measure(&self) -> Self::Float {
-        self.cost
-    }
-
-    fn best_measure(&self) -> Self::Float {
-        self.best_cost
-    }
-
-    fn iterations_since_best(&self) -> usize {
-        self.iteration - self.best_cost_iteration
-    }
-
-    fn get_param(&self) -> Option<&Self::Param> {
-        self.param.as_ref()
     }
 
     fn is_initialised(&self) -> bool {
         self.is_initialised
     }
 
-    fn is_terminated(&self) -> bool {
-        self.termination_status != Status::NotTerminated
+    fn get_param(&self) -> Option<&Self::Param> {
+        self.param.as_ref()
     }
 
-    fn terminate_due_to(mut self, reason: Reason) -> Self {
-        self.termination_status = Status::Terminated(reason);
-        self
+    fn update(&mut self) -> ErrorEstimate<Self::Float> {
+        self.iter += 1;
+        ErrorEstimate(self.cost)
     }
+
+    fn last_was_best(&mut self) {}
 }
 
 #[derive(Debug)]
@@ -117,11 +76,7 @@ impl Calculation<DummyProblem, DummyState> for DummyCalculation {
     ) -> Result<DummyState, Self::Error> {
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        if state.iteration >= 100 {
-            state = state.terminate_due_to(Reason::ExceededMaxIterations);
-        }
-
-        state.cost = (-((state.iteration as f64) / 100.0)).exp();
+        state.cost = (-((state.iter as f64) / 100.0)).exp();
 
         Ok(state)
     }
@@ -157,6 +112,7 @@ async fn problems_run_successfully() {
     let runner = calculation
         .build_for(problem)
         .with_cancellation_token(cancellation_token.clone())
+        .configure(|state| state.max_iters(100))
         // .attach_observer(
         //     FileWriter::new(
         //         outdir.clone(),
@@ -173,8 +129,10 @@ async fn problems_run_successfully() {
         .finalise()
         .expect("failed to build problem");
 
-    tokio::task::spawn_blocking(move || runner.run());
+    // tokio::task::spawn_blocking(move || runner.run());
+    let result = runner.run();
+    dbg!(result);
 
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    // std::thread::sleep(std::time::Duration::from_millis(100));
     cancellation_token.cancel();
 }
