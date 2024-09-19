@@ -13,7 +13,6 @@ pub use crate::GenerateBuilder;
 // pub use crate::PlotGenerator;
 
 pub use crate::Cause;
-pub use crate::CoreState;
 pub use crate::Problem;
 pub use crate::State;
 pub use crate::Status;

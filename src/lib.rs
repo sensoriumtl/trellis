@@ -28,7 +28,7 @@ pub(crate) use controller::Control;
 pub use problem::Problem;
 pub use result::Output;
 pub use runner::GenerateBuilder;
-pub use state::{Cause, CoreState, ErrorEstimate, State, Status, UserState};
+pub use state::{Cause, ErrorEstimate, State, Status, UserState};
 // pub use watchers::Tracer;
 pub use watchers::{Frequency, Target};
 
@@ -40,4 +40,8 @@ pub use watchers::{Frequency, Target};
 
 pub use hifitime::Duration;
 
-pub use state::TrellisFloat;
+/// Core trait a float must satisfy for the trellis calculation loop to progress
+pub trait TrellisFloat: std::fmt::Display + serde::Serialize {}
+
+impl TrellisFloat for f32 {}
+impl TrellisFloat for f64 {}

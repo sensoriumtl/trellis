@@ -1,4 +1,5 @@
 mod builder;
+mod killswitch;
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -13,38 +14,13 @@ use crate::{
     controller::{set_handler, Control},
     result::{ErrorCause, TrellisError},
     watchers::{Observable, ObserverSlice, ObserverVec, Stage},
-    CoreState, UserState,
+    UserState,
 };
 use crate::{Calculation, Cause, Problem, State};
 pub use builder::GenerateBuilder;
+use killswitch::{Holder, Killswitch};
 
 pub type Error = Box<dyn std::error::Error>;
-
-#[derive(Copy, Clone)]
-pub enum Caller {
-    CtrlC,
-    Controller,
-}
-
-impl From<Caller> for Cause {
-    fn from(val: Caller) -> Self {
-        match val {
-            Caller::CtrlC => Cause::ControlC,
-            Caller::Controller => Cause::Controller,
-        }
-    }
-}
-
-pub struct Killswitch {
-    caller: Caller,
-    inner: Arc<AtomicBool>,
-}
-
-impl Killswitch {
-    fn is_dead(&self) -> bool {
-        self.inner.load(Ordering::SeqCst)
-    }
-}
 
 /// General purpose calculation runner
 pub struct Runner<C, P, S, T>
@@ -60,13 +36,11 @@ where
     state: Option<State<S>>,
     /// Should execution be timed
     time: bool,
-    /// Can we cancel with control c?
-    control_c: bool,
     /// Receiver
     ///
     /// When a signal is received on this channel the calculation is terminated.
     cancellation_token: Option<T>,
-    ///
+    /// Signals to terminate the calculation
     signals: Vec<Killswitch>,
     observers: ObserverVec<State<S>>,
 }
@@ -102,18 +76,21 @@ where
         Ok(None)
     }
 
-    fn initialise_control_c(&mut self) -> Result<Arc<AtomicBool>, Error> {
+    #[cfg(feature = "ctrlc")]
+    fn initialise_control_c_handler(&mut self) -> Result<Arc<AtomicBool>, Error> {
+        // Create an atomic bool: when a signal is received from ctrl c this will flip to true
         let received_kill_signal_from_control_c = Arc::new(AtomicBool::new(false));
 
-        // #[cfg(feature = "ctrlc")]
-        // {
-        //     // Clone the state as the value needs to move into the closure
-        //     let state = received_kill_signal_from_control_c.clone();
-        //     ctrlc::set_handler(move || {
-        //         state.store(true, Ordering::SeqCst);
-        //     })?;
-        // }
-        //
+        {
+            // Clone the state as the value needs to move into the closure
+            let state = received_kill_signal_from_control_c.clone();
+            // Set the ctrl c handler. This ensures that when a signal is recorded by ctrl c the
+            // state is flipped to true
+            ctrlc::set_handler(move || {
+                state.store(true, Ordering::SeqCst);
+            })?;
+        }
+
         Ok(received_kill_signal_from_control_c)
     }
 }
@@ -132,10 +109,10 @@ where
         self.signals
             .iter()
             .find(|signal| signal.is_dead())
-            .map(|signal| signal.caller.into())
+            .map(|signal| signal.held_by().into())
     }
 
-    #[instrument(name = "initialising runner", skip_all)]
+    #[instrument(name = "initialising runner", fields(ident = C::NAME), skip_all)]
     fn initialise(&mut self, mut state: State<S>) -> Result<State<S>, C::Error> {
         let specific_state = self
             .calculation
@@ -149,7 +126,7 @@ where
         Ok(state)
     }
 
-    #[instrument(name = "performing iteration", skip_all)]
+    #[instrument(name = "performing iteration", fields(ident = C::NAME, iter = state.current_iteration()), skip_all)]
     fn once(
         &mut self,
         mut state: State<S>,
@@ -173,7 +150,7 @@ where
         Ok(state)
     }
 
-    #[instrument(name = "finalising runner", skip_all)]
+    #[instrument(name = "finalising runner", fields(ident = C::NAME), skip_all)]
     fn finalise(&mut self, mut state: State<S>) -> Result<C::Output, C::Error> {
         let result = self
             .calculation
@@ -183,9 +160,9 @@ where
     }
 
     /// Execute the runner
-    #[instrument(name = "running trellis computation", skip_all)]
+    #[instrument(name = "running trellis computation", fields(ident = C::NAME), skip_all)]
     pub fn run(mut self) -> Result<C::Output, TrellisError<C::Output, C::Error>> {
-        // Todo: Load checkpoints?
+        // Todo: Load checkpoints? (resuscitate)
         let start_time = self.now().unwrap();
 
         let mut state = self.state.take().unwrap();
@@ -212,7 +189,7 @@ where
         // We can only get here if the calculation actually terminated, so we can unwrap
         let cause = match state.termination_cause() {
             Some(Cause::ControlC) => Some(ErrorCause::ControlC),
-            Some(Cause::Controller) => Some(ErrorCause::CancellationToken),
+            Some(Cause::Parent) => Some(ErrorCause::CancellationToken),
             Some(Cause::Converged) => None,
             Some(Cause::ExceededMaxIterations) => Some(ErrorCause::MaxIterExceeded),
             None => unreachable!("the loop can only terminate if the state was actually converged"),
@@ -260,11 +237,10 @@ where
     S: UserState,
 {
     fn initialise_controllers(&mut self) -> Result<(), Error> {
-        if self.control_c {
-            let received_kill_signal_from_control_c = Killswitch {
-                caller: Caller::CtrlC,
-                inner: self.initialise_control_c()?,
-            };
+        #[cfg(feature = "ctrlc")]
+        {
+            let received_kill_signal_from_control_c =
+                Killswitch::new(Holder::CtrlC, self.initialise_control_c_handler()?);
             self.signals = vec![received_kill_signal_from_control_c];
         }
         Ok(())
@@ -278,18 +254,15 @@ where
     R: Control + 'static,
 {
     fn initialise_controllers(&mut self) -> Result<(), Error> {
-        if self.control_c {
-            let received_kill_signal_from_control_c = Killswitch {
-                caller: Caller::CtrlC,
-                inner: self.initialise_control_c()?,
-            };
+        #[cfg(feature = "ctrlc")]
+        {
+            let received_kill_signal_from_control_c =
+                Killswitch::new(Holder::CtrlC, self.initialise_control_c_handler()?);
             self.signals = vec![received_kill_signal_from_control_c];
         }
 
-        let received_kill_signal_from_controller = Killswitch {
-            caller: Caller::Controller,
-            inner: self.initialise_kill_signal_handler()?,
-        };
+        let received_kill_signal_from_controller =
+            Killswitch::new(Holder::Parent, self.initialise_kill_signal_handler()?);
         self.signals.push(received_kill_signal_from_controller);
         Ok(())
     }

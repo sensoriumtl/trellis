@@ -3,7 +3,7 @@ use num_traits::float::FloatCore;
 use super::{Error, InitialiseRunner, Runner};
 use crate::{
     watchers::{Frequency, Observable, Observer, ObserverVec},
-    Calculation, Control, CoreState, Problem, State, UserState,
+    Calculation, Control, Problem, State, UserState,
 };
 
 pub trait GenerateBuilder<P, S>: Sized + Calculation<P, S>
@@ -25,7 +25,6 @@ where
             calculation: self,
             state: State::new(),
             time: true,
-            control_c: false,
             cancellation_token: (),
             observers: ObserverVec::default(),
         }
@@ -41,7 +40,6 @@ where
     problem: P,
     state: State<S>,
     time: bool,
-    control_c: bool,
     cancellation_token: T,
     observers: ObserverVec<State<S>>,
 }
@@ -50,12 +48,6 @@ where
     C: Calculation<P, S>,
     S: UserState,
 {
-    #[must_use]
-    pub fn control_c(mut self, control_c: bool) -> Self {
-        self.control_c = control_c;
-        self
-    }
-
     #[must_use]
     pub fn time(mut self, time: bool) -> Self {
         self.time = time;
@@ -98,7 +90,6 @@ where
             problem: self.problem,
             state: self.state,
             time: self.time,
-            control_c: self.control_c,
             cancellation_token,
             observers: self.observers,
         }
@@ -114,7 +105,6 @@ where
             calculation: self.calculation,
             state: Some(self.state),
             time: self.time,
-            control_c: self.control_c,
             cancellation_token: None,
             signals: vec![],
             observers: self.observers,
@@ -136,7 +126,6 @@ where
             calculation: self.calculation,
             state: Some(self.state),
             time: self.time,
-            control_c: self.control_c,
             cancellation_token: Some(self.cancellation_token),
             signals: vec![],
             observers: self.observers,

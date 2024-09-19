@@ -1,42 +1,11 @@
-use std::fmt::Display;
+mod status;
+
+use crate::TrellisFloat;
 
 use hifitime::Duration;
 use num_traits::float::FloatCore;
-use serde::{Deserialize, Serialize};
 
-/// Core trait a float must satisfy for the trellis calculation loop to progress
-pub trait TrellisFloat: Display + Serialize {}
-
-impl TrellisFloat for f32 {}
-impl TrellisFloat for f64 {}
-
-/// The status of the solver
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub enum Status {
-    /// The solver has terminated for [`Cause`]
-    Terminated(Cause),
-    /// The solver has not terminated
-    NotTerminated,
-}
-
-impl Default for Status {
-    fn default() -> Self {
-        Self::NotTerminated
-    }
-}
-
-/// Causes a solver may terminate
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Cause {
-    /// The caller has manually terminated the process with ctrl-C
-    ControlC,
-    /// A calling thread had terminated the process using a [`tokio::CancellationToken`]
-    Controller,
-    /// The solver has converged to the requested tolerance
-    Converged,
-    /// The solver has exceeded the maximum allowable iterations
-    ExceededMaxIterations,
-}
+pub use status::{Cause, Status};
 
 /// The state of the [`trellis`] solver
 ///
@@ -67,33 +36,6 @@ pub struct State<S: UserState> {
     relative_tolerance: S::Float,
 }
 
-/// Generic methods the state of a solver must satisfy for the core function loop to progress.
-pub trait CoreState {
-    type Specific: UserState;
-    /// Create a new instance of the iteration state
-    fn new() -> Self;
-    /// Record the time since the solver began
-    fn record_time(&mut self, duration: Duration);
-    /// Increment the iteration count
-    fn increment_iteration(&mut self);
-    fn current_iteration(&self) -> usize;
-    fn update(self) -> Self;
-    fn is_initialised(&self) -> bool;
-    fn is_terminated(&self) -> bool;
-    fn terminate_due_to(self, reason: Cause) -> Self;
-    fn termination_cause(&self) -> Option<&Cause>;
-    fn get_param(&self) -> Option<&<Self::Specific as UserState>::Param>;
-    fn measure(&self) -> <Self::Specific as UserState>::Float;
-    fn best_measure(&self) -> <Self::Specific as UserState>::Float;
-    fn iterations_since_best(&self) -> usize;
-    fn take_specific(&mut self) -> Self::Specific;
-    fn set_specific(self, specific: Self::Specific) -> Self;
-
-    // Set functions
-    fn relative_tolerance(self, tol: <Self::Specific as UserState>::Float) -> Self;
-    fn max_iters(self, max_iter: usize) -> Self;
-}
-
 pub struct ErrorEstimate<F>(pub F);
 
 pub trait UserState {
@@ -106,14 +48,13 @@ pub trait UserState {
     fn last_was_best(&mut self);
 }
 
-impl<S> CoreState for State<S>
+impl<S> State<S>
 where
     S: UserState,
     <S as UserState>::Float: FloatCore,
 {
-    type Specific = S;
-
-    fn new() -> Self {
+    /// Create a new instance of the iteration state
+    pub(crate) fn new() -> Self {
         Self {
             specific: Some(S::new()),
             iter: 0,
@@ -129,36 +70,44 @@ where
         }
     }
 
-    fn record_time(&mut self, duration: Duration) {
+    /// Record the time since the solver began
+    pub(crate) fn record_time(&mut self, duration: Duration) {
         self.time = Some(duration);
     }
 
-    fn increment_iteration(&mut self) {
+    /// Increment the iteration count
+    pub(crate) fn increment_iteration(&mut self) {
         self.iter += 1;
     }
 
-    fn current_iteration(&self) -> usize {
+    /// Returns the current iteration number
+    pub(crate) fn current_iteration(&self) -> usize {
         self.iter
     }
 
-    fn iterations_since_best(&self) -> usize {
+    /// Returns the number of iterations since the best result was observed
+    pub(crate) fn iterations_since_best(&self) -> usize {
         self.iter - self.last_best_iter
     }
-
-    fn is_initialised(&self) -> bool {
+    /// Returns true if the state has been initialised. This means a problem specific inner solver
+    /// has been attached
+    pub(crate) fn is_initialised(&self) -> bool {
         self.specific.is_some()
     }
 
-    fn is_terminated(&self) -> bool {
+    /// Returns true if the termination status is [`Status::Terminated`]
+    pub(crate) fn is_terminated(&self) -> bool {
         self.termination_status != Status::NotTerminated
     }
 
-    fn terminate_due_to(mut self, reason: Cause) -> Self {
+    /// Terminates the solver for [`Cause`]
+    pub(crate) fn terminate_due_to(mut self, reason: Cause) -> Self {
         self.termination_status = Status::Terminated(reason);
         self
     }
 
-    fn termination_cause(&self) -> Option<&Cause> {
+    /// Returns Some if the solver is terminated, else returns None
+    pub(crate) fn termination_cause(&self) -> Option<&Cause> {
         use Status::*;
         match &self.termination_status {
             NotTerminated => None,
@@ -167,7 +116,8 @@ where
     }
 
     #[must_use]
-    fn update(mut self) -> Self {
+    /// Update the state, and the interan state
+    pub(crate) fn update(mut self) -> Self {
         let mut specific = self.specific.take().unwrap();
         let error_estimate = specific.update();
         self.error = error_estimate.0;
@@ -195,39 +145,45 @@ where
         self
     }
 
-    fn get_param(&self) -> Option<&S::Param> {
+    /// Returns the parameter vector from the inner state variable
+    pub(crate) fn get_param(&self) -> Option<&S::Param> {
         self.specific
             .as_ref()
-            .map(|specific| specific.get_param())
-            .flatten()
+            .and_then(|specific| specific.get_param())
     }
 
-    fn measure(&self) -> S::Float {
+    /// Returns the current measure of progress
+    pub(crate) fn measure(&self) -> S::Float {
         self.error
     }
 
-    fn best_measure(&self) -> S::Float {
+    /// Returns the best measure of progress
+    pub(crate) fn best_measure(&self) -> S::Float {
         self.best_error
     }
 
-    fn take_specific(&mut self) -> S {
+    /// Removes the specific state from the state and returns it
+    pub(crate) fn take_specific(&mut self) -> S {
         self.specific.take().unwrap()
     }
 
     #[must_use]
-    fn relative_tolerance(mut self, relative_tolerance: S::Float) -> Self {
+    /// Set the relative tolerance target
+    pub(crate) fn relative_tolerance(mut self, relative_tolerance: S::Float) -> Self {
         self.relative_tolerance = relative_tolerance;
         self
     }
 
     #[must_use]
-    fn max_iters(mut self, max_iter: usize) -> Self {
+    /// Set the maximum allowable iteration count
+    pub(crate) fn max_iters(mut self, max_iter: usize) -> Self {
         self.max_iter = max_iter;
         self
     }
 
     #[must_use]
-    fn set_specific(mut self, specific: S) -> Self {
+    /// Set the internal state object
+    pub(crate) fn set_specific(mut self, specific: S) -> Self {
         self.specific = Some(specific);
         self
     }

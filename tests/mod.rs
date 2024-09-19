@@ -133,6 +133,6 @@ async fn problems_run_successfully() {
     let result = runner.run();
     dbg!(result);
 
-    // std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(10000));
     cancellation_token.cancel();
 }
