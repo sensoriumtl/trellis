@@ -27,7 +27,7 @@ tracing = "0.1.40"
 
 [features]
 # default = ["tokio", "ctrlc", "plotting", "writing"]
-default = ["plotting", "writing"]
+default = []
 tokio = ["dep:tokio-util"]
 ctrlc = ["dep:ctrlc"]
 plotting = ["dep:plotly", "dep:ndarray"]
