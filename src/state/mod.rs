@@ -7,6 +7,29 @@ use num_traits::float::FloatCore;
 
 pub use status::{Cause, Status};
 
+/// The user-defined state must implement this trait to be used as part of the trellis calculation
+/// loop
+///
+/// All other state methods are auto-implemented on a type wrapping the user-defined state.
+pub trait UserState {
+    type Float: TrellisFloat;
+    type Param;
+
+    /// Create a new instance of the user-defined state object
+    fn new() -> Self;
+
+    // Returns true when the state object is initialised correctly
+    fn is_initialised(&self) -> bool {
+        true
+    }
+    // Update the state object at the end of an iteration
+    fn update(&mut self) -> ErrorEstimate<Self::Float>;
+    // Returns the current parameter value, if one is assigned
+    fn get_param(&self) -> Option<&Self::Param>;
+    // Returns true if the last iteration was the best iteration seen so far
+    fn last_was_best(&mut self);
+}
+
 /// The state of the [`trellis`] solver
 ///
 /// This contains generic fields common to all solvers, as well as a user-defined state
@@ -36,17 +59,9 @@ pub struct State<S: UserState> {
     relative_tolerance: S::Float,
 }
 
+#[repr(transparent)]
+// Wrapping for error estimates during a calculation run
 pub struct ErrorEstimate<F>(pub F);
-
-pub trait UserState {
-    type Float: TrellisFloat;
-    type Param;
-    fn new() -> Self;
-    fn is_initialised(&self) -> bool;
-    fn update(&mut self) -> ErrorEstimate<Self::Float>;
-    fn get_param(&self) -> Option<&Self::Param>;
-    fn last_was_best(&mut self);
-}
 
 impl<S> State<S>
 where

@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 // #[cfg(feature = "plotting")]
 // pub use plot::PlotGenerator;
 //
-// mod tracing;
-// pub use tracing::Tracer;
+mod tracing;
+pub use tracing::Tracer;
 
 pub enum Target {
     Param,
@@ -22,7 +22,7 @@ pub enum Target {
 #[derive(Copy, Clone)]
 pub enum Stage {
     Initialisation,
-    Finalisation,
+    WrapUp,
     Iteration,
 }
 
@@ -91,10 +91,15 @@ pub enum ObservationError {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+// How often the observations should take place
 pub enum Frequency {
+    // An observer that never observes
     Never,
+    // Observations occur on every iteration
     Always,
+    // Observations occur on every nth iteration
     Every(usize),
+    // The observer runs during the wrap up stage only
     OnExit,
 }
 

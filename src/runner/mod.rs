@@ -150,11 +150,13 @@ where
         Ok(state)
     }
 
-    #[instrument(name = "finalising runner", fields(ident = C::NAME), skip_all)]
-    fn finalise(&mut self, mut state: State<S>) -> Result<C::Output, C::Error> {
+    #[instrument(name = "wrapping up runner", fields(ident = C::NAME), skip_all)]
+    fn wrap_up(&mut self, mut state: State<S>) -> Result<C::Output, C::Error> {
         let result = self
             .calculation
             .finalise(&mut self.problem, state.take_specific())?;
+
+        self.observers.update(C::NAME, &state, Stage::WrapUp);
 
         Ok(result)
     }
@@ -195,7 +197,7 @@ where
             None => unreachable!("the loop can only terminate if the state was actually converged"),
         };
 
-        let result = self.finalise(state)?;
+        let result = self.wrap_up(state)?;
 
         if let Some(cause) = cause {
             return Err(TrellisError {
