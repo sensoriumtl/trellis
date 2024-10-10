@@ -46,7 +46,7 @@ pub struct State<S: UserState> {
     /// The time since the solver was instantiated
     time: Option<Duration>,
     /// The termination status of the solver
-    termination_status: Status,
+    pub(crate) termination_status: Status,
     /// The current estimate of the error, that observed in the previous iteration
     error: S::Float,
     /// The estimate of the error observed in the one before last iteration

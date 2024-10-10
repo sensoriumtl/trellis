@@ -76,6 +76,7 @@ where
     S: UserState,
 {
     pub(crate) fn new(result: R, state: State<S>) -> Self {
+        dbg!(&state.termination_status);
         Self { result, state }
     }
 }
