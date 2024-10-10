@@ -6,9 +6,9 @@ use std::sync::{
     Arc,
 };
 
-use hifitime::{Duration, Epoch};
 use num_traits::float::FloatCore;
 use tracing::instrument;
+use web_time::{Duration, Instant};
 
 use crate::{
     controller::{set_handler, Control},
@@ -50,11 +50,11 @@ where
     C: Calculation<P, S>,
     S: UserState,
 {
-    fn now(&self) -> Result<Option<Epoch>, hifitime::errors::Errors> {
+    fn now(&self) -> Option<Instant> {
         if self.time {
-            return Ok(Some(Epoch::now()?));
+            return Some(Instant::now());
         }
-        Ok(None)
+        None
     }
 
     pub(crate) fn observers(&self) -> ObserverSlice<'_, State<S>> {
@@ -65,15 +65,12 @@ where
         &mut self.observers
     }
 
-    fn duration_since(
-        &self,
-        maybe_epoch: Option<&Epoch>,
-    ) -> Result<Option<Duration>, hifitime::errors::Errors> {
-        if let Some(epoch) = maybe_epoch {
-            let now = self.now()?.unwrap();
-            return Ok(Some(now - *epoch));
+    fn duration_since(&self, maybe_previous: Option<&Instant>) -> Option<Duration> {
+        if let Some(previous) = maybe_previous {
+            let now = self.now().unwrap();
+            return Some(now.duration_since(*previous));
         }
-        Ok(None)
+        None
     }
 
     #[cfg(feature = "ctrlc")]
@@ -130,7 +127,7 @@ where
     fn once(
         &mut self,
         mut state: State<S>,
-        maybe_start_time: Option<&Epoch>,
+        maybe_start_time: Option<&Instant>,
     ) -> Result<State<S>, C::Error> {
         let _maybe_iteration_start_time = self.now().unwrap();
 
@@ -139,7 +136,7 @@ where
             .next(&mut self.problem, state.take_specific())?;
         state = state.set_specific(specific);
 
-        if let Some(total_duration) = self.duration_since(maybe_start_time).unwrap() {
+        if let Some(total_duration) = self.duration_since(maybe_start_time) {
             state.record_time(total_duration);
         }
         state.increment_iteration();
@@ -165,7 +162,7 @@ where
     #[instrument(name = "running trellis computation", fields(ident = C::NAME), skip_all)]
     pub fn run(mut self) -> Result<C::Output, TrellisError<C::Output, C::Error>> {
         // Todo: Load checkpoints? (resuscitate)
-        let start_time = self.now().unwrap();
+        let start_time = self.now();
 
         let mut state = self.state.take().unwrap();
 

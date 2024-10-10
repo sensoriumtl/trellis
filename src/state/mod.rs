@@ -2,8 +2,8 @@ mod status;
 
 use crate::TrellisFloat;
 
-use hifitime::Duration;
 use num_traits::float::FloatCore;
+use web_time::Duration;
 
 pub use status::{Cause, Status};
 

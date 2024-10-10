@@ -21,7 +21,7 @@ pub use state::{Cause, ErrorEstimate, State, Status, UserState};
 // pub use watchers::Tracer;
 pub use watchers::{Frequency, Target};
 
-pub use hifitime::Duration;
+pub use web_time::Duration;
 
 pub trait TrellisFloat: std::fmt::Display + serde::Serialize {}
 

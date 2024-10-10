@@ -144,11 +144,14 @@
           # Extra inputs can be added here; cargo and rustc are provided by default.
           packages = [
             # pkgs.codelldb
+            pkgs.lldb
             fenix-pkgs.rust-analyzer
           ];
 
           shellHook = '' 
-            export RUST_ANALYZER_PATH=${fenix-pkgs.rust-analyzer}/bin/rust-analyzer
+            export LLDB_PATH=${pkgs.lldb}/bin/lldb
+            export LLDB_DYLIB_PATH=${pkgs.lldb}/lib/liblldb.dylib
+            export RUST_ANALYZER_PATH=${fenix-pkgs.rust-analyzer}/bin/rust-alyzer
           '';
         };
       });
