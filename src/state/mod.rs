@@ -90,6 +90,10 @@ where
         self.time = Some(duration);
     }
 
+    pub(crate) fn duration(&self) -> Option<&Duration> {
+        self.time.as_ref()
+    }
+
     /// Increment the iteration count
     pub(crate) fn increment_iteration(&mut self) {
         self.iter += 1;
@@ -107,7 +111,9 @@ where
     /// Returns true if the state has been initialised. This means a problem specific inner solver
     /// has been attached
     pub(crate) fn is_initialised(&self) -> bool {
-        self.specific.is_some()
+        self.specific
+            .as_ref()
+            .map_or(false, |state| state.is_initialised())
     }
 
     /// Returns true if the termination status is [`Status::Terminated`]

@@ -2,6 +2,8 @@
 //! wrapper.
 
 use crate::{State, UserState};
+use num_traits::float::FloatCore;
+use std::fmt;
 
 /// The output of a calculation
 ///
@@ -17,6 +19,56 @@ where
     pub result: R,
     /// Solver state after the last iterationn
     pub state: State<S>,
+}
+
+impl<R, S> std::fmt::Display for Output<R, S>
+where
+    R: fmt::Display,
+    S: UserState,
+    <S as UserState>::Float: FloatCore,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(cause) = self.state.termination_cause() {
+            use crate::Cause::*;
+            match cause {
+                Converged => {
+                    writeln!(
+                        f,
+                        "Solver converged after {} iterations",
+                        self.state.current_iteration()
+                    )?;
+                    if let Some(duration) = self.state.duration() {
+                        writeln!(f, "Duration {:?}", duration)?;
+                    }
+                    writeln!(f, "{}", self.result)?;
+                }
+                ControlC => {
+                    writeln!(
+                        f,
+                        "Solver converged by ctrl-c intervention after {} iterations",
+                        self.state.current_iteration()
+                    )?;
+                }
+                Parent => {
+                    writeln!(
+                        f,
+                        "Solver converged by parent intervention after {} iterations",
+                        self.state.current_iteration()
+                    )?;
+                }
+                ExceededMaxIterations => {
+                    writeln!(
+                        f,
+                        "Solver exceeded maximum iterations ({})",
+                        self.state.current_iteration()
+                    )?;
+                }
+            }
+        } else {
+            writeln!(f, "Solver is still in progress.")?;
+        }
+        Ok(())
+    }
 }
 
 impl<R, S> Output<R, S>
