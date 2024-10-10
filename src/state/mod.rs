@@ -178,27 +178,27 @@ where
     }
 
     /// Removes the specific state from the state and returns it
-    pub(crate) fn take_specific(&mut self) -> S {
+    pub fn take_specific(&mut self) -> S {
         self.specific.take().unwrap()
     }
 
     #[must_use]
     /// Set the relative tolerance target
-    pub(crate) fn relative_tolerance(mut self, relative_tolerance: S::Float) -> Self {
+    pub fn relative_tolerance(mut self, relative_tolerance: S::Float) -> Self {
         self.relative_tolerance = relative_tolerance;
         self
     }
 
     #[must_use]
     /// Set the maximum allowable iteration count
-    pub(crate) fn max_iters(mut self, max_iter: usize) -> Self {
+    pub fn max_iters(mut self, max_iter: usize) -> Self {
         self.max_iter = max_iter;
         self
     }
 
     #[must_use]
     /// Set the internal state object
-    pub(crate) fn set_specific(mut self, specific: S) -> Self {
+    pub fn set_specific(mut self, specific: S) -> Self {
         self.specific = Some(specific);
         self
     }
