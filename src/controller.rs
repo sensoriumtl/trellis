@@ -2,15 +2,25 @@
 
 use std::thread;
 
+#[cfg(feature = "tokio")]
+use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
+
 /// A controller has to implement the `Control` trait
 pub trait Control: Send {
+    /// Value emitted by the controller when the kill signal is received
     type Value;
     type Error;
+    /// Spawns a blocking task that waits for a kill signal to be returned
     fn blocking_recv_kill_signal(self) -> Result<Self::Value, Self::Error>;
 }
 
+// Set up a handler for the kill signal
+//
+// This function spawns a background thread which awaits on the blocking_recv call for the kill
+// signal. When a `Value` or `Error` is received from the receiver the provided closure is called
 pub(crate) fn set_handler<R, F>(
     receiver: R,
+    // When the kill signal is received, this closure is called
     mut handle_kill_signal: F,
 ) -> Result<(), std::io::Error>
 where
@@ -27,13 +37,10 @@ where
 }
 
 #[cfg(feature = "tokio")]
-impl<M> Control for tokio::sync::oneshot::Receiver<M>
-where
-    M: Send,
-{
-    type Value = M;
-    type Error = tokio::sync::oneshot::error::RecvError;
+impl Control for CancellationToken {
+    type Value = WaitForCancellationFutureOwned;
+    type Error = ();
     fn blocking_recv_kill_signal(self) -> Result<Self::Value, Self::Error> {
-        self.blocking_recv()
+        Ok(self.cancelled_owned())
     }
 }

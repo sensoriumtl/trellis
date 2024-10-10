@@ -1,16 +1,16 @@
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "writing")]
-mod file;
-
-#[cfg(feature = "writing")]
-pub use file::FileWriter;
-
-#[cfg(feature = "plotting")]
-mod plot;
-#[cfg(feature = "plotting")]
-pub use plot::PlotGenerator;
-
+// #[cfg(feature = "writing")]
+// mod file;
+//
+// #[cfg(feature = "writing")]
+// pub use file::FileWriter;
+//
+// #[cfg(feature = "plotting")]
+// mod plot;
+// #[cfg(feature = "plotting")]
+// pub use plot::PlotGenerator;
+//
 mod tracing;
 pub use tracing::Tracer;
 
@@ -22,7 +22,7 @@ pub enum Target {
 #[derive(Copy, Clone)]
 pub enum Stage {
     Initialisation,
-    Finalisation,
+    WrapUp,
     Iteration,
 }
 
@@ -51,7 +51,7 @@ impl<S> ObserverVec<S> {
 #[allow(clippy::type_complexity)]
 pub(crate) struct ObserverSlice<'a, S>(&'a [(Arc<Mutex<dyn Observer<S>>>, Frequency)]);
 
-pub trait Observer<S> {
+pub trait Observer<S>: Send + Sync {
     fn observe(&self, ident: &'static str, subject: &S, stage: Stage);
 }
 
@@ -91,10 +91,15 @@ pub enum ObservationError {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+// How often the observations should take place
 pub enum Frequency {
+    // An observer that never observes
     Never,
+    // Observations occur on every iteration
     Always,
+    // Observations occur on every nth iteration
     Every(usize),
+    // The observer runs during the wrap up stage only
     OnExit,
 }
 
