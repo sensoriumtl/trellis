@@ -14,7 +14,7 @@ use crate::{
     controller::{set_handler, Control},
     result::{ErrorCause, TrellisError},
     watchers::{Observable, ObserverSlice, ObserverVec, Stage},
-    UserState,
+    Output, UserState,
 };
 use crate::{Calculation, Cause, Problem, State};
 pub use builder::GenerateBuilder;
@@ -148,19 +148,19 @@ where
     }
 
     #[instrument(name = "wrapping up runner", fields(ident = C::NAME), skip_all)]
-    fn wrap_up(&mut self, mut state: State<S>) -> Result<C::Output, C::Error> {
+    fn wrap_up(&mut self, mut state: State<S>) -> Result<Output<C::Output, S>, C::Error> {
         let result = self
             .calculation
             .finalise(&mut self.problem, state.take_specific())?;
 
         self.observers.update(C::NAME, &state, Stage::WrapUp);
 
-        Ok(result)
+        Ok(Output::new(result, state))
     }
 
     /// Execute the runner
     #[instrument(name = "running trellis computation", fields(ident = C::NAME), skip_all)]
-    pub fn run(mut self) -> Result<C::Output, TrellisError<C::Output, C::Error>> {
+    pub fn run(mut self) -> Result<Output<C::Output, S>, TrellisError<C::Output, C::Error>> {
         // Todo: Load checkpoints? (resuscitate)
         let start_time = self.now();
 
@@ -199,7 +199,7 @@ where
         if let Some(cause) = cause {
             return Err(TrellisError {
                 cause,
-                result: Some(result),
+                result: Some(result.result),
             });
         }
 

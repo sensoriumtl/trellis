@@ -1,31 +1,30 @@
 //! This module defines the default output type for a trellis calculation, in addition to the error
 //! wrapper.
 
-use crate::Problem;
+use crate::{State, UserState};
 
-#[derive(Debug)]
 /// The output of a calculation
 ///
 /// The calculation output is user defined in the finalise step of the [`Calculation`] trait, but
 /// this is presented as a good verbose option in situations where the caller wants granular
 /// information about the calculation and its progress. It returns the entire original problem,
 /// solver and state object.
-pub struct Output<C, P, S> {
+pub struct Output<R, S>
+where
+    S: UserState,
+{
     /// The original calculation carried out by `trellis`
-    pub calculation: C,
-    /// The problem which implemented the methods required for the calculation
-    pub problem: Problem<P>,
+    pub result: R,
     /// Solver state after the last iterationn
-    pub state: S,
+    pub state: State<S>,
 }
 
-impl<C, P, S> Output<C, P, S> {
-    pub(crate) fn new(problem: Problem<P>, calculation: C, state: S) -> Self {
-        Self {
-            problem,
-            calculation,
-            state,
-        }
+impl<R, S> Output<R, S>
+where
+    S: UserState,
+{
+    pub(crate) fn new(result: R, state: State<S>) -> Self {
+        Self { result, state }
     }
 }
 
