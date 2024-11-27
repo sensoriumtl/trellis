@@ -15,7 +15,7 @@ pub use calculation::Calculation;
 pub(crate) use controller::Control;
 
 pub use problem::Problem;
-pub use result::{Output, TrellisError};
+pub use result::{ErrorCause, Output, TrellisError};
 pub use runner::GenerateBuilder;
 pub use state::{Cause, ErrorEstimate, State, Status, UserState};
 // pub use watchers::Tracer;
