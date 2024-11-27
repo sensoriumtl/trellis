@@ -111,6 +111,7 @@ where
 
     #[instrument(name = "initialising runner", fields(ident = C::NAME), skip_all)]
     fn initialise(&mut self, mut state: State<S>) -> Result<State<S>, C::Error> {
+        tracing::info!("initialising runner");
         let specific_state = self
             .calculation
             .initialise(&mut self.problem, state.take_specific())?;
@@ -129,6 +130,7 @@ where
         mut state: State<S>,
         maybe_start_time: Option<&Instant>,
     ) -> Result<State<S>, C::Error> {
+        tracing::info!("performing iteration");
         let _maybe_iteration_start_time = self.now().unwrap();
 
         let specific = self
@@ -149,6 +151,7 @@ where
 
     #[instrument(name = "wrapping up runner", fields(ident = C::NAME), skip_all)]
     fn wrap_up(&mut self, mut state: State<S>) -> Result<Output<C::Output, S>, C::Error> {
+        tracing::info!("wrapping up runner");
         let result = self
             .calculation
             .finalise(&mut self.problem, state.take_specific())?;
