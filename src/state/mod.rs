@@ -122,7 +122,7 @@ where
     }
 
     /// Terminates the solver for [`Cause`]
-    pub(crate) fn terminate_due_to(mut self, reason: Cause) -> Self {
+    pub fn terminate_due_to(mut self, reason: Cause) -> Self {
         self.termination_status = Status::Terminated(reason);
         self
     }
